@@ -1,0 +1,11 @@
+# TODO list for Upload it extension
+
+The following tasks are open and are waiting for contributors
+to implement them:
+
+* Report the error if the upload was not successful,
+  perhaps suggest checking if the upload URL is correct.
+
+* Parse the response from the server (note: server implementation
+  may not be ready yet) and open the check/submission report
+  link in a new browser tab.

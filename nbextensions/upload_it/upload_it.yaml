@@ -1,0 +1,11 @@
+Type: IPython Notebook Extension
+Compatibility: 5.x
+Name: Upload it
+Main: main.js
+Description: Uploads the complete Jupyter notebook to a configurable server.
+Link: README.md
+Icon: upload_it.png
+Parameters:
+- name: upload_it_server_url
+  description: The URL of the server to upload the notebook. 
+  input_type: text
