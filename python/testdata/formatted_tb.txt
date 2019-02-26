@@ -1,0 +1,15 @@
+---------------------------------------------------------------------------
+ZeroDivisionError                         Traceback (most recent call last)
+${dir}/testdata/zero_division.py in divide_by_zero()
+      8 def divide_by_zero():
+      9     '''A function that throws ZeroDivisionError'''
+---> 10     return _divide_by_zero_child(10)
+
+${dir}/testdata/zero_division.py in _divide_by_zero_child(val)
+      3 
+      4 def _divide_by_zero_child(val):
+----> 5     return val / 0
+      6 
+      7 
+
+ZeroDivisionError: division by zero
