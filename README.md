@@ -1,5 +1,7 @@
 # Programming Education Assistant
 
+[![Build Status](https://travis-ci.org/google/prog-edu-assistant.svg?branch=master)](https://travis-ci.org/google/prog-edu-assistant)
+
 A project to create a suite of programming assignments
 that can be used for running a college-level programming
 course.
