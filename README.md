@@ -18,36 +18,36 @@ README file).
 The followint student workflow is intended for the programming
 assignments included with this project:
 
-0 The student installs the client-side environment, including
-  Python 3, Jupyter notebook and a custom extension provided
-  by this project.
+1. The student installs the client-side environment, including
+   Python 3, Jupyter notebook and a custom extension provided
+   by this project.
 
-1 For each unit of the course, the student downloads the
-  Jupyter notebook with course material about 1 week in
-  advance of the class.
+2. For each unit of the course, the student downloads the
+   Jupyter notebook with course material about 1 week in
+   advance of the class.
 
-2 The student reads the description of the assignment within
-  the notebook, runs examples and completes the task inside
-  the notebook.
+3. The student reads the description of the assignment within
+   the notebook, runs examples and completes the task inside
+   the notebook.
 
-3 The student presses the "Check" menu item in the notebook
-  to upload the notebook to the backend system. The backend
-  system stores the notebook in temporary storage and runs
-  a few automated checks, including syntax and style checker
-  and runtime tests for the assignment. The result of
-  the checks are formatted as code comments and passed back
-  to the Jupyter notebook environment on the student's
-  computer.
+4. The student presses the "Check" menu item in the notebook
+   to upload the notebook to the backend system. The backend
+   system stores the notebook in temporary storage and runs
+   a few automated checks, including syntax and style checker
+   and runtime tests for the assignment. The result of
+   the checks are formatted as code comments and passed back
+   to the Jupyter notebook environment on the student's
+   computer.
 
-4 The notebook shows the message received from the checker
-  to the student, perhaps by adding a temporary cell with
-  rendered code and checker findings.
+5. The notebook shows the message received from the checker
+   to the student, perhaps by adding a temporary cell with
+   rendered code and checker findings.
 
-5 The student modifies the solution to address the comments
-  and runs the check again until they are satisfied.
+6. The student modifies the solution to address the comments
+   and runs the check again until they are satisfied.
 
-6 The student finally selects the "Submit" menu item in
-  the notebook and makes a formal submission.
+7. The student finally selects the "Submit" menu item in
+   the notebook and makes a formal submission.
 
 ## Architecture
 
