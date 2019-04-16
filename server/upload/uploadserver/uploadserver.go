@@ -31,8 +31,8 @@ func New(opts Options) *Server {
 		opts: opts,
 		mux:  mux,
 	}
-	mux.Handle("/", handleError(s.uploadForm()))
-	mux.Handle("/upload", handleError(s.handleUpload()))
+	mux.Handle("/", handleError(s.uploadForm))
+	mux.Handle("/upload", handleError(s.handleUpload))
 	mux.Handle("/uploads", http.StripPrefix("/uploads",
 		http.FileServer(http.Dir(s.opts.UploadDir))))
 	return s
@@ -60,50 +60,48 @@ type httpHandleFuncWithError func(http.ResponseWriter, *http.Request) error
 
 const maxUploadSize = 1048576
 
-func (s *Server) handleUpload() httpHandleFuncWithError {
-	return func(w http.ResponseWriter, req *http.Request) error {
-		if s.opts.DisableCORS {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "POST")
-		}
-		if req.Method == "OPTIONS" {
-			log.Println("OPTIONS ", req.URL.Path)
-			return nil
-		}
-		if req.Method != "POST" {
-			return fmt.Errorf("Unsupported method %s on %s", req.Method, req.URL.Path)
-		}
-		fmt.Println("POST ", req.URL.Path)
-		req.Body = http.MaxBytesReader(w, req.Body, maxUploadSize)
-		err := req.ParseMultipartForm(maxUploadSize)
-		if err != nil {
-			return fmt.Errorf("error parsing upload form: %s", err)
-		}
-		f, _, err := req.FormFile("notebook")
-		if err != nil {
-			return fmt.Errorf("no notebook file in the form: %s\nRequest %s", err, req)
-		}
-		defer f.Close()
-		b, err := ioutil.ReadAll(f)
-		if err != nil {
-			return fmt.Errorf("error reading upload: %s", err)
-		}
-		// TODO(salikh): Add user identifier to the file name.
-		filename := filepath.Join(s.opts.UploadDir, uuid.New().String()+".ipynb")
-		err = ioutil.WriteFile(filename, b, 0700)
-		if err != nil {
-			return fmt.Errorf("error writing uploaded file: %s", err)
-		}
-		err = s.scheduleCheck(filename)
-		if err != nil {
-			return err
-		}
-		w.Header().Set("Content-Type", "text/plain")
+func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
+	if s.opts.DisableCORS {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST")
-		fmt.Fprintf(w, "OK\n")
+	}
+	if req.Method == "OPTIONS" {
+		log.Println("OPTIONS ", req.URL.Path)
 		return nil
 	}
+	if req.Method != "POST" {
+		return fmt.Errorf("Unsupported method %s on %s", req.Method, req.URL.Path)
+	}
+	fmt.Println("POST ", req.URL.Path)
+	req.Body = http.MaxBytesReader(w, req.Body, maxUploadSize)
+	err := req.ParseMultipartForm(maxUploadSize)
+	if err != nil {
+		return fmt.Errorf("error parsing upload form: %s", err)
+	}
+	f, _, err := req.FormFile("notebook")
+	if err != nil {
+		return fmt.Errorf("no notebook file in the form: %s\nRequest %s", err, req)
+	}
+	defer f.Close()
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("error reading upload: %s", err)
+	}
+	// TODO(salikh): Add user identifier to the file name.
+	filename := filepath.Join(s.opts.UploadDir, uuid.New().String()+".ipynb")
+	err = ioutil.WriteFile(filename, b, 0700)
+	if err != nil {
+		return fmt.Errorf("error writing uploaded file: %s", err)
+	}
+	err = s.scheduleCheck(filename)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	fmt.Fprintf(w, "OK\n")
+	return nil
 }
 
 func (s *Server) scheduleCheck(filename string) error {
@@ -111,15 +109,13 @@ func (s *Server) scheduleCheck(filename string) error {
 	return nil
 }
 
-func (s *Server) uploadForm() httpHandleFuncWithError {
-	return func(w http.ResponseWriter, req *http.Request) error {
-		if req.Method != "GET" {
-			return fmt.Errorf("Unsupported method %s on %s", req.Method, req.URL.Path)
-		}
-		fmt.Println("GET ", req.URL.Path)
-		_, err := w.Write([]byte(uploadHTML))
-		return err
+func (s *Server) uploadForm(w http.ResponseWriter, req *http.Request) error {
+	if req.Method != "GET" {
+		return fmt.Errorf("Unsupported method %s on %s", req.Method, req.URL.Path)
 	}
+	fmt.Println("GET ", req.URL.Path)
+	_, err := w.Write([]byte(uploadHTML))
+	return err
 }
 
 const uploadHTML = `<!DOCTYPE html>
