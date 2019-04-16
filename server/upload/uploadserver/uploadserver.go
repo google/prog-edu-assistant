@@ -117,13 +117,10 @@ func (s *Server) uploadForm() httpHandleFuncWithError {
 			return fmt.Errorf("Unsupported method %s on %s", req.Method, req.URL.Path)
 		}
 		fmt.Println("GET ", req.URL.Path)
-		//return uploadTmpl.Execute(w, nil)
 		_, err := w.Write([]byte(uploadHTML))
 		return err
 	}
 }
-
-//var uploadTmpl = template.Must(template.New("upload").Parse(uploadHTML))
 
 const uploadHTML = `<!DOCTYPE html>
 <title>Upload form</title>
