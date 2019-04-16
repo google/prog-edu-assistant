@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 )
 
 type Options struct {
@@ -16,30 +15,29 @@ type Options struct {
 }
 
 type Server struct {
-	Options
-	*mux.Router
+	opts Options
+	mux  *http.ServeMux
 }
 
 func New(opts Options) *Server {
-	r := mux.NewRouter()
+	mux := http.NewServeMux()
 	s := &Server{
-		Options: opts,
-		Router:  r,
+		opts: opts,
+		mux:  mux,
 	}
-	r.Handle("/upload", handleError(s.handleUpload())).Methods("POST")
-	r.Handle("/", handleError(s.uploadForm())).Methods("GET")
-	r.Handle("/uploads/", http.StripPrefix("/uploads",
-		http.FileServer(http.Dir(s.Options.UploadDir))))
-	r.HandleFunc("/upload", handleOptions).Methods("OPTIONS")
+	mux.Handle("/", handleError(s.uploadForm()))
+	mux.Handle("/upload", handleError(s.handleUpload()))
+	mux.Handle("/uploads", http.StripPrefix("/uploads",
+		http.FileServer(http.Dir(s.opts.UploadDir))))
 	return s
 }
 
 func (s *Server) ListenAndServe(addr string) error {
-	return http.ListenAndServe(addr, s.Router)
+	return http.ListenAndServe(addr, s.mux)
 }
 
 func (s *Server) ListenAndServeTLS(addr, certFile, keyFile string) error {
-	return http.ListenAndServeTLS(addr, certFile, keyFile, s.Router)
+	return http.ListenAndServeTLS(addr, certFile, keyFile, s.mux)
 }
 
 func handleError(fn func(http.ResponseWriter, *http.Request) error) http.Handler {
@@ -54,16 +52,19 @@ func handleError(fn func(http.ResponseWriter, *http.Request) error) http.Handler
 
 type httpHandleFuncWithError func(http.ResponseWriter, *http.Request) error
 
-func handleOptions(w http.ResponseWriter, req *http.Request) {
-	log.Println("OPTIONS ", req.URL.Path)
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST")
-}
-
 const maxUploadSize = 1048576
 
 func (s *Server) handleUpload() httpHandleFuncWithError {
 	return func(w http.ResponseWriter, req *http.Request) error {
+		if req.Method == "OPTIONS" {
+			log.Println("OPTIONS ", req.URL.Path)
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "POST")
+			return nil
+		}
+		if req.Method != "POST" {
+			return fmt.Errorf("Unsupported method %s on %s", req.Method, req.URL.Path)
+		}
 		fmt.Println("POST ", req.URL.Path)
 		req.Body = http.MaxBytesReader(w, req.Body, maxUploadSize)
 		err := req.ParseMultipartForm(maxUploadSize)
@@ -80,7 +81,7 @@ func (s *Server) handleUpload() httpHandleFuncWithError {
 			return fmt.Errorf("error reading upload: %s", err)
 		}
 		// TODO(salikh): Add user identifier to the file name.
-		filename := filepath.Join(s.UploadDir, uuid.New().String()+".ipynb")
+		filename := filepath.Join(s.opts.UploadDir, uuid.New().String()+".ipynb")
 		err = ioutil.WriteFile(filename, b, 0700)
 		if err != nil {
 			return fmt.Errorf("error writing uploaded file: %s", err)
@@ -104,6 +105,9 @@ func (s *Server) scheduleCheck(filename string) error {
 
 func (s *Server) uploadForm() httpHandleFuncWithError {
 	return func(w http.ResponseWriter, req *http.Request) error {
+		if req.Method != "GET" {
+			return fmt.Errorf("Unsupported method %s on %s", req.Method, req.URL.Path)
+		}
 		fmt.Println("GET ", req.URL.Path)
 		//return uploadTmpl.Execute(w, nil)
 		_, err := w.Write([]byte(uploadHTML))
