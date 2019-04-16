@@ -16,7 +16,10 @@ var (
 		"The path to the signed SSL server certificate.")
 	sslKeyFile = flag.String("ssl_key_file", "localhost.key",
 		"The path to the SSL server key.")
-	uploadDir = flag.String("upload_dir", "uploads", "The directory to write uploaded notebooks.")
+	uploadDir   = flag.String("upload_dir", "uploads", "The directory to write uploaded notebooks.")
+	disableCORS = flag.Bool("disable_cors", false, "If true, disables CORS browser checks. "+
+		"This is currently necessary to enable uploads from Jupyter notebooks, but unfortunately "+
+		"it also makes the server vulnerable to XSRF attacks. Use with care.")
 )
 
 func main() {
@@ -29,7 +32,8 @@ func main() {
 
 func run() error {
 	s := uploadserver.New(uploadserver.Options{
-		UploadDir: *uploadDir,
+		UploadDir:   *uploadDir,
+		DisableCORS: *disableCORS,
 	})
 	addr := ":" + strconv.Itoa(*port)
 	protocol := "http"

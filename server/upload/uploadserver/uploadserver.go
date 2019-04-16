@@ -11,7 +11,13 @@ import (
 )
 
 type Options struct {
+	// UploadDir specifies the directory to write uploaded files to
+	// and to serve on /uploads.
 	UploadDir string
+	// DisableCORS specifies whether the server should disable CORS
+	// (Cross-origin request sharing) checks in browser by adding
+	// Access-Control-Allow-Origin:* HTTP header.
+	DisableCORS bool
 }
 
 type Server struct {
@@ -56,10 +62,12 @@ const maxUploadSize = 1048576
 
 func (s *Server) handleUpload() httpHandleFuncWithError {
 	return func(w http.ResponseWriter, req *http.Request) error {
-		if req.Method == "OPTIONS" {
-			log.Println("OPTIONS ", req.URL.Path)
+		if s.opts.DisableCORS {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "POST")
+		}
+		if req.Method == "OPTIONS" {
+			log.Println("OPTIONS ", req.URL.Path)
 			return nil
 		}
 		if req.Method != "POST" {
