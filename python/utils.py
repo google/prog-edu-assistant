@@ -13,8 +13,9 @@ class TbFormatter:
 
     def __init__(self, tb_offset=0, color='Neutral'):
         self.syntax_tb = ultratb.SyntaxTB(color_scheme=color)
-        self.interactive_tb = ultratb.AutoFormattedTB(
-            mode='Context', color_scheme=color, tb_offset=tb_offset)
+        self.interactive_tb = ultratb.AutoFormattedTB(mode='Context',
+                                                      color_scheme=color,
+                                                      tb_offset=tb_offset)
 
     def format(self, etype, value, traceback):
         '''Formats the output of sys.exc_info.'''

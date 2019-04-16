@@ -1,0 +1,66 @@
+# TODO list for the Upload server (demo)
+
+Note: The Go implementation of the upload server may
+not be the final implementation, because it is possible
+that people may prefer to keep all the implementation
+in a single language (Python).
+
+To complete an end-to-end demo, the following functionality is
+missing now, and the contributions are most welcome:
+
+* Automatically start the analyzer on notebook upload.
+  The analyzer in turn should do the following:
+
+  * Use heuristics to determine which assignment the notebook
+    refers to. It may be using the notebok file name, or
+    simply be time-dependent on course schedule.
+
+  * Run the assignment-specific autograder suite, making
+    sure that it does not consume too much memory, disk
+    or CPU time, or kill it if it does not complete
+    within reasonable deadline (e.g. 1 minute).
+
+  * Autograder suite should do roughly the following:
+    (1) extract the solution code (each assignment has its
+    own formatting requirements); (2) run the syntax checker
+    on the solution to catch most obvious potential problems;
+    (3) run the automated test suite on the solution;
+    (4) run the lint tool on the solution to give out
+    some source code improvement hints; (6) run the pretty-printer
+    to format the submitted code together with the detected
+    problems. The detected problems may be coming from syntax
+    check, abstract syntax-level match against known bad solutions,
+    or from a match on a particular pattern of test failures.
+    The autograder components are expected to be written in Python
+    in facilitate using the parser from Python standard library.
+
+  * The result of the autograder suite should be formatted
+    in a human-readable way (perhaps HTML with syntax highlighting,
+    color coding etc). Depending on whether the uploaded
+    solution was marked as final submission or a checkpoint,
+    different set of reports may need to be generated:
+    - Checkpoints produce feedback for the student to read
+    and improve their solution.
+    - Final submissions produce the autograding report
+    for the TA and professors to facilitate final grading.
+
+  * After starting the autograder suite, but before it completes,
+    the server should respond to the request originator
+    and send a link to the report page. The Jupyter notebook
+    extension would open the link in a new browser tab.
+
+  * The server must be able to serve the report URLs
+    and give some visual hint that autograding is in progress.
+    Once autograding finishes, the same report URL should
+    now contain the final report (there may be separate
+    reports for students and for TA and professors).
+    Ideally the report page should automatically refresh
+    itself to show the autograding report.
+
+* User authentication should be integrated with a preexisting
+  infrastructure (e.g. OAuth server), and the server must
+  be able to identify the uploaded notebooks and match
+  them to students who signed up for the course.
+  Note that this is not necessary for the initial
+  proof-of-concept demo, but will be necessary before
+  productionizing the system.
