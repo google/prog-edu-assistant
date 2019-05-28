@@ -24,8 +24,9 @@ def autotest(testClass):
     """
     suite = unittest.TestLoader().loadTestsFromTestCase(testClass)
     errors = io.StringIO()
-    result = unittest.TextTestRunner(
-        verbosity=4, stream=errors, resultclass=SummaryTestResult).run(suite)
+    result = unittest.TextTestRunner(verbosity=4,
+                                     stream=errors,
+                                     resultclass=SummaryTestResult).run(suite)
     return result, errors.getvalue()
 
 
@@ -93,7 +94,7 @@ class MyMagics(Magics):
 
         env = {}
         try:
-            exec (cell, self.shell.user_ns, env)
+            exec(cell, self.shell.user_ns, env)
         except Exception as e:
             # Ignore execution errors -- just print them.
             print('Exception while executing submission:\n', e)
@@ -129,7 +130,7 @@ class MyMagics(Magics):
         env = {}
         # Note: if solution throws exception, this breaks the execution. Solution must be correct!
         # TODO(salikh): Use self.shell.ex() instead of exec().
-        exec (cell, self.shell.user_ns, env)
+        exec(cell, self.shell.user_ns, env)
         # Copy the modifications into submission object.
         self.shell.user_ns['submission'] = SimpleNamespace(**env)
         # Copy the modifications into user_ns
@@ -170,8 +171,8 @@ class MyMagics(Magics):
         # Render the template giving the specified variable as 'results',
         # and render the result as inlined HTML in cell output. 'source' is
         # the prerendered source code.
-        return HTML(
-            template.render(results=results, source=highlighted_source))
+        return HTML(template.render(results=results,
+                                    source=highlighted_source))
 
 
 def load_ipython_extension(ipython):
