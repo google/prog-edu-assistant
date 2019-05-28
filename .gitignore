@@ -114,3 +114,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+go.sum
+bazel-*
+tmp
+/tmp-*
