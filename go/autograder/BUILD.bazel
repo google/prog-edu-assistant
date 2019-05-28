@@ -7,7 +7,7 @@ go_library(
     srcs = ["autograder.go"],
     importpath = "github.com/google/prog-edu-assistant/autograder",
     deps = [
+        "//go/notebook",
         "@com_github_golang_glog//:go_default_library",
-				"//go/notebook",
     ],
 )
