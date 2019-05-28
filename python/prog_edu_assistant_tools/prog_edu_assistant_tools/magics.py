@@ -15,95 +15,97 @@ from types import SimpleNamespace
 
 
 def autotest(testClass):
-  """Non-magic version of the autotest.
+    """Non-magic version of the autotest.
 
     This function can be used as
 
         result, log = autotest(MyTestCase)
 
     """
-  suite = unittest.TestLoader().loadTestsFromTestCase(testClass)
-  errors = io.StringIO()
-  result = unittest.TextTestRunner(
-      verbosity=4, stream=errors, resultclass=SummaryTestResult).run(suite)
-  return result, errors.getvalue()
+    suite = unittest.TestLoader().loadTestsFromTestCase(testClass)
+    errors = io.StringIO()
+    result = unittest.TextTestRunner(
+        verbosity=4, stream=errors, resultclass=SummaryTestResult).run(suite)
+    return result, errors.getvalue()
 
 
 def report(template, **kwargs):
-  """Non-magic version of the report.
+    """Non-magic version of the report.
 
     This function can be used as
 
         report(template, submission_source.source, results)
 
     """
-  if 'source' in kwargs:
-    # TODO(salikh): Avoid rewriting user input.
-    kwargs['raw_source'] = kwargs['source']
-    kwargs['source'] = highlight(kwargs['source'], PythonLexer(),
-                                 HtmlFormatter())
-  # Render the template giving the specified variable as 'results',
-  # and render the result as inlined HTML in cell output. 'source' is
-  # the prerendered source code.
-  return HTML(template.render(**kwargs))
+    if 'source' in kwargs:
+        # TODO(salikh): Avoid rewriting user input.
+        kwargs['raw_source'] = kwargs['source']
+        kwargs['source'] = highlight(kwargs['source'], PythonLexer(),
+                                     HtmlFormatter())
+    # Render the template giving the specified variable as 'results',
+    # and render the result as inlined HTML in cell output. 'source' is
+    # the prerendered source code.
+    return HTML(template.render(**kwargs))
 
 
 # The class MUST call this class decorator at creation time
 @magics_class
 class MyMagics(Magics):
-
-  @line_magic
-  def autotest(self, line):
-    """Run the unit tests inline
+    @line_magic
+    def autotest(self, line):
+        """Run the unit tests inline
 
         Returns the result object. result.results is a summary dictionary of
         outcomes.
         result.errors
         """
 
-    suite = unittest.TestLoader().loadTestsFromTestCase(self.shell.ev(line))
-    errors = io.StringIO()
-    result = unittest.TextTestRunner(
-        verbosity=4, stream=errors, resultclass=SummaryTestResult).run(suite)
-    return result, errors.getvalue()
+        suite = unittest.TestLoader().loadTestsFromTestCase(
+            self.shell.ev(line))
+        errors = io.StringIO()
+        result = unittest.TextTestRunner(
+            verbosity=4, stream=errors,
+            resultclass=SummaryTestResult).run(suite)
+        return result, errors.getvalue()
 
-  def lmagic(self, line):
-    'my line magic'
-    print('Full access to the main IPython object:', self.shell)
-    print('Variables in the user namespace:', list(self.shell.user_ns.keys()))
-    return line
+    def lmagic(self, line):
+        'my line magic'
+        print('Full access to the main IPython object:', self.shell)
+        print('Variables in the user namespace:',
+              list(self.shell.user_ns.keys()))
+        return line
 
-  def cmagic(self, line, cell):
-    'my cell magic'
-    return line, cell
+    def cmagic(self, line, cell):
+        'my cell magic'
+        return line, cell
 
-  @cell_magic
-  def submission(self, line, cell):
-    """Registers a submission_source and submission, if the code can run.
+    @cell_magic
+    def submission(self, line, cell):
+        """Registers a submission_source and submission, if the code can run.
 
         This magic is useful for auto-testing (testing autograder unit tests on
         incorrect inputs)
     """
 
-    # Copy the source into submission_source.source
-    self.shell.user_ns['submission_source'] = SimpleNamespace(
-        source=cell.rstrip())
+        # Copy the source into submission_source.source
+        self.shell.user_ns['submission_source'] = SimpleNamespace(
+            source=cell.rstrip())
 
-    env = {}
-    try:
-      exec(cell, self.shell.user_ns, env)
-    except Exception as e:
-      # Ignore execution errors -- just print them.
-      print('Exception while executing submission:\n', e)
-      # If the code cannot be executed, leave the submission empty.
-      self.shell.user_ns['submission'] = None
-      return None
-    # Copy the modifications into submission object.
-    self.shell.user_ns['submission'] = SimpleNamespace(**env)
+        env = {}
+        try:
+            exec (cell, self.shell.user_ns, env)
+        except Exception as e:
+            # Ignore execution errors -- just print them.
+            print('Exception while executing submission:\n', e)
+            # If the code cannot be executed, leave the submission empty.
+            self.shell.user_ns['submission'] = None
+            return None
+        # Copy the modifications into submission object.
+        self.shell.user_ns['submission'] = SimpleNamespace(**env)
 
-  @cell_magic
-  def solution(self, line, cell):
-    """Registers solution and evaluates it.
+    @cell_magic
+    def solution(self, line, cell):
+        """Registers solution and evaluates it.
 
         Also removes the PROMPT block and %%solution from the solution source.
 
@@ -113,29 +115,30 @@ class MyMagics(Magics):
         notebook cells.
     """
 
-    # Cut out PROMPT
-    cell = re.sub('(?ms)^[ \t]*""" # BEGIN PROMPT.*""" # END PROMPT[ \t]*\n?',
-                  '', cell)
-    # Cut out BEGIN/END SOLUTION markers
-    cell = re.sub('(?ms)^[ \t]*# (BEGIN|END) SOLUTION[ \t]*\n?', '', cell)
+        # Cut out PROMPT
+        cell = re.sub(
+            '(?ms)^[ \t]*""" # BEGIN PROMPT.*""" # END PROMPT[ \t]*\n?', '',
+            cell)
+        # Cut out BEGIN/END SOLUTION markers
+        cell = re.sub('(?ms)^[ \t]*# (BEGIN|END) SOLUTION[ \t]*\n?', '', cell)
 
-    # Copy the source into submission_source.source
-    self.shell.user_ns['submission_source'] = SimpleNamespace(
-        source=cell.rstrip())
+        # Copy the source into submission_source.source
+        self.shell.user_ns['submission_source'] = SimpleNamespace(
+            source=cell.rstrip())
 
-    env = {}
-    # Note: if solution throws exception, this breaks the execution. Solution must be correct!
-    # TODO(salikh): Use self.shell.ex() instead of exec().
-    exec(cell, self.shell.user_ns, env)
-    # Copy the modifications into submission object.
-    self.shell.user_ns['submission'] = SimpleNamespace(**env)
-    # Copy the modifications into user_ns
-    for k in env:
-      self.shell.user_ns[k] = env[k]
+        env = {}
+        # Note: if solution throws exception, this breaks the execution. Solution must be correct!
+        # TODO(salikh): Use self.shell.ex() instead of exec().
+        exec (cell, self.shell.user_ns, env)
+        # Copy the modifications into submission object.
+        self.shell.user_ns['submission'] = SimpleNamespace(**env)
+        # Copy the modifications into user_ns
+        for k in env:
+            self.shell.user_ns[k] = env[k]
 
-  @cell_magic
-  def template(self, line, cell):
-    """Registers a template for report generation.
+    @cell_magic
+    def template(self, line, cell):
+        """Registers a template for report generation.
 
         Use {{results['TestClassName.test_method']}} to extract specific
         outcomes and be prepared
@@ -143,39 +146,40 @@ class MyMagics(Magics):
         run at all (e.g. because
         of syntax error in the submission).
         """
-    name = line
-    if line == '':
-      name = 'report_template'
-    # Define a Jinja2 template based on cell contents.
-    self.shell.user_ns[name] = Template(cell)
+        name = line
+        if line == '':
+            name = 'report_template'
+        # Define a Jinja2 template based on cell contents.
+        self.shell.user_ns[name] = Template(cell)
 
-  @cell_magic
-  def report(self, line, cell):
-    """Renders the named template.
+    @cell_magic
+    def report(self, line, cell):
+        """Renders the named template.
 
         Syntax:
           %%report results_var
           template_name
         """
-    var_name = line
-    template_name = cell
-    template = self.shell.ev(template_name)
-    results = self.shell.ev(var_name)
-    highlighted_source = highlight(
-        self.shell.user_ns['submission_source'].source, PythonLexer(),
-        HtmlFormatter())
-    # Render the template giving the specified variable as 'results',
-    # and render the result as inlined HTML in cell output. 'source' is
-    # the prerendered source code.
-    return HTML(template.render(results=results, source=highlighted_source))
+        var_name = line
+        template_name = cell
+        template = self.shell.ev(template_name)
+        results = self.shell.ev(var_name)
+        highlighted_source = highlight(
+            self.shell.user_ns['submission_source'].source, PythonLexer(),
+            HtmlFormatter())
+        # Render the template giving the specified variable as 'results',
+        # and render the result as inlined HTML in cell output. 'source' is
+        # the prerendered source code.
+        return HTML(
+            template.render(results=results, source=highlighted_source))
 
 
 def load_ipython_extension(ipython):
-  """This function is called when the extension is
+    """This function is called when the extension is
 
     loaded. It accepts an IPython InteractiveShell
     instance. We can register the magic with the
     `register_magic_function` method of the shell
     instance.
   """
-  ipython.register_magics(MyMagics)
+    ipython.register_magics(MyMagics)
