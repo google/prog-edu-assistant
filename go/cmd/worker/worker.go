@@ -1,6 +1,12 @@
 // Binary worker is the daemon that runs inside the autograder worker docker
-// image, accepts requests on the message queue, runs autograder scripts
+// container, accepts requests on the message queue, runs autograder scripts
 // under nsjail, creates reports and posts reports back to the message queue.
+//
+// Usage:
+//   go run cmd/worker/worker.go
+//     -autograder_dir ./autograder-dir
+//     -scratch_dir /tmp/autograder
+//
 package main
 
 import (
@@ -55,6 +61,9 @@ func run() error {
 	ag := autograder.New(*autograderDir)
 	ag.NSJailPath = *nsjailPath
 	ag.PythonPath = *pythonPath
+	ag.ScratchDir = *scratchDir
+	ag.DisableCleanup = *disableCleanup
+	// Exponential backoff on connecting to the message queue.
 	delay := 500 * time.Millisecond
 	retryUntil := time.Now().Add(60 * time.Second)
 	var q *queue.Channel

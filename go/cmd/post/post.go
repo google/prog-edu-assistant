@@ -1,4 +1,10 @@
-// Binary post is for sending notebooks for grading.
+// Binary post is for sending notebooks for grading to the worker daemon
+// via a message queue.
+//
+// Usage:
+//
+//  go run cmd/post/post.go submission.ipynb
+//
 package main
 
 import (
@@ -14,9 +20,9 @@ import (
 
 var (
 	queueSpec = flag.String("queue_spec", "amqp://guest:guest@localhost:5672/",
-		"The spec of the queue to connect to.")
+		"The spec of the message queue to connect to.")
 	autograderQueue = flag.String("autograder_queue", "autograde",
-		"The name of the autograder queue to listen to the work requests.")
+		"The name of the autograder queue to post the work requests.")
 )
 
 func main() {
