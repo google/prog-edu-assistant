@@ -31,15 +31,21 @@ type Notebook struct {
 // Cell represents one cell of a Jupyter notebook. It is limited in
 // the kind of cells it can represent.
 type Cell struct {
+	// Type is "code" or "markdown".
 	Type string
 	// Data is the raw parsed JSON contents of the cell.
 	// When serializing cell back to JSON, Data is ignored.
-	Data     map[string]interface{}
+	Data map[string]interface{}
+	// Metadata is the "metadata" field of the cell.
 	Metadata map[string]interface{}
-	Outputs  map[string]string
-	Source   string
+	// Outputs are the recorded outputs of the cell.
+	Outputs map[string]string
+	// Source is the raw source of the cell.
+	Source string
 }
 
+// ParseFile loads a notebook file from the specified file and parses it
+// into a Notebook structure.
 func ParseFile(filename string) (*Notebook, error) {
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -52,6 +58,8 @@ func ParseFile(filename string) (*Notebook, error) {
 	return n, nil
 }
 
+// parseText parses a piece of notebook that is expected to be textual
+// (either a string directly or a list of strings).
 func parseText(v interface{}) (text string, err error) {
 	ss, ok := v.([]interface{})
 	if !ok {
@@ -77,6 +85,8 @@ func parseText(v interface{}) (text string, err error) {
 	return
 }
 
+// Parse parses a byte slice into a Notebook structure. The input data
+// must be a notebook in JSON encoding.
 func Parse(b []byte) (*Notebook, error) {
 	data := make(map[string]interface{})
 	err := json.Unmarshal(b, &data)
@@ -148,6 +158,8 @@ func Parse(b []byte) (*Notebook, error) {
 	return ret, nil
 }
 
+// marshalText serializes a multi-line text string
+// into a format that is compatible with JSON encoder.
 func marshalText(text string) []interface{} {
 	var ret []interface{}
 	lines := strings.Split(text, "\n")
@@ -207,6 +219,8 @@ func (n *Notebook) Marshal() ([]byte, error) {
 	return json.Marshal(output)
 }
 
+// MapCells runs a function on each cell and replaces the cell with the returned values.
+// If mapFunc returns error, the function terminates the iteration and returns the error.
 func (n *Notebook) MapCells(mapFunc func(c *Cell) (*Cell, error)) (*Notebook, error) {
 	var out []*Cell
 	for _, cell := range n.Cells {
@@ -435,6 +449,7 @@ func (n *Notebook) ToStudent() (*Notebook, error) {
 	return transformed, nil
 }
 
+// cloneMetadata makes a deep copy of the metadata in the parsed JSON format.
 func cloneMetadata(metadata map[string]interface{}, extras ...interface{}) map[string]interface{} {
 	ret := make(map[string]interface{})
 	// Copy the metadata.
@@ -449,12 +464,16 @@ func cloneMetadata(metadata map[string]interface{}, extras ...interface{}) map[s
 }
 
 var (
+	// testClassRegex detects the test cases that need to be written down into a separate file.
+	// The name of the file is derived from the name of the test class.
 	testClassRegex = regexp.MustCompile(`(?m)^[ \t]*class ([a-zA-Z_0-9]*)\(unittest\.TestCase\):`)
 )
 
 // ToAutograder converts a master notebook into the intermediate format called "autograder notebook".
 // The autograder notebook is a format where each cell corresponds to one file,
 // and the file name is stored in metadata["filename"]. It is later written into the autograder directory.
+// Note: the autograder notebooks do not exist in the form of notebook files, it is only a convenience
+// representation that it actually saved in the directory autograder format.
 func (n *Notebook) ToAutograder() (*Notebook, error) {
 	// Assignment metadata is global for the notebook.
 	assignmentMetadata := make(map[string]interface{})
@@ -531,6 +550,9 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 				Source:   text,
 			}, nil
 		}
+		// Extract the reporter into a script. The reporter script takes the JSON on the standard input,
+		// expecting 'results' field to contain an outcome dictionary, and 'logs' field to contain the
+		// dictionary of test logs, keyed by the test name.
 		if m := templateRegex.FindStringSubmatchIndex(source); m != nil {
 			// Extract the template name.
 			name := source[m[2]:m[3]]

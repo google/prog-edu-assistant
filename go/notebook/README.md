@@ -6,9 +6,9 @@ autograder directory with the tests.
 
 This tool is very similar to jassign (https://github.com/okpy/jassign), but the
 requirement set is slightly different, and jassign seems to be a quite young
-project, so it did not looks appropriate to use that. However, given the goals
-are very similar, it is possible we may consider reusing jassign or merging to
-it. Parts of the syntax has been made compatible with jassign.
+project, so it did not look appropriate to reuse . However, given the goals are
+very similar, it is possible we may consider reusing jassign or merging to it.
+Parts of the syntax has been made compatible with jassign.
 
 ## Requirements to the assignment builder
 
@@ -29,24 +29,30 @@ it. Parts of the syntax has been made compatible with jassign.
 
 ## Syntax details
 
+### MASTER ONLY
+
+Any cell that matches `# MASTER ONLY` will be removed when generating a student
+notebooks.
+
 ### Solution
 
-Solution can be marked either with end-of-line comments or with dedicated line
-markers.
+Solution cells must be marked with `%%solution` cell magics.
 
-    x = 2  # SOLUTION
-
-    # BEGIN SOLUTION
+    %%solution
     x = 2
-    # END SOLUTION
 
-If the solution cell has `# UNITTEST OUTPUT` marker, its output in the master
-notebook is used to create a unit test to check the output of the student
-solution.
+    %%solution
+    def f():
+      # BEGIN SOLUTION
+      return 2
+      # END SOLUTION
+
+TODO(salikh): Implement a special marker (`# UNITTEST OUTPUT`?) that instructs
+that the stdout output of the master solution should be recorded and used for
+testing student submissions.
 
 The solutions are removed when producing a student notebook, with the
-replacement being either a heuristically-generated, or provided with `PROMPT`
-markers.
+replacement being either a generic "...", or provided with `PROMPT` markers.
 
     """  # BEGIN PROMPT
     # Put your code here (and remove 'pass').
@@ -68,17 +74,20 @@ These tests are intended to be used for autograding, i.e. running the tests on
 potentially incorrect solution in order to identify problem points and give some
 feedback to students. They are marked with `UNITTEST` and are used in two ways:
 
-*   To test the solution (all unit tests should pass on the solution).
+*   To test the master solution (all unit tests should pass on the master
+    solution).
 *   To extract the autograder scripts.
 
-Note: to test the autograder scripts, the second-level tests provide various
-incorrect inputs, and the unit tests are run and the outcome vector is checked
-against the expected one.
+Note: to test the autograder scripts, the second-meta-level tests provide
+various incorrect inputs, and the unit tests are run and the outcome vector is
+checked against the expected one.
 
-### Autograder tests
+### Autograder tests (self-tests)
 
-Autograder tests are marked with `# AUTOTEST` and provide an alternative,
-typically incorrect input and the expected outcome vector.
+Autograder tests are performed by providing an potentially incorrect submission
+using `%%submission` cell magic, and running the unit test using `autotest`
+funciont. The resulting outcome vector can be checked using plain Python
+`assert` statements.
 
 ### Report scripts
 
