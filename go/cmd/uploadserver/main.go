@@ -1,3 +1,4 @@
+// Command uploadserver starts the upload server.
 package main
 
 import (
@@ -38,7 +39,8 @@ var (
 			"/.well-known/openid-configuration will be "+
 			"requested for detailed endpoint configuration. Defaults to Google.")
 	allowedUsersFile = flag.String("allowed_users_file", "",
-		"The file name of a text file with one user email per line.")
+		"The file name of a text file with one user email per line. If not specified, only authentication "+
+			"is performed without authorization.")
 	uploadDir = flag.String("upload_dir", "uploads", "The directory to write uploaded notebooks.")
 	queueSpec = flag.String("queue_spec", "amqp://guest:guest@localhost:5672/",
 		"The spec of the queue to connect to.")

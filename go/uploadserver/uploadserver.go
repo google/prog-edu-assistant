@@ -1,3 +1,7 @@
+// Package uploadserver provides an implemenation of the upload server
+// that accepts student notebook uploads (submissions), posts them to the
+// message queue for grading, listens for the reports on the message queue
+// and makes reports available on the web.
 package uploadserver
 
 import (
@@ -19,6 +23,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// Options configures the behavior of the web server.
 type Options struct {
 	// The base URL of this server. This is used to construct callback URL.
 	ServerURL string
@@ -52,6 +57,8 @@ type Options struct {
 	CookieEncryptKey string
 }
 
+// Server provides an implementation of a web server for handling student
+// notebook uploads.
 type Server struct {
 	opts            Options
 	mux             *http.ServeMux
@@ -64,6 +71,7 @@ type Server struct {
 	oauthState string
 }
 
+// New creates a new Server instance.
 func New(opts Options) *Server {
 	mux := http.NewServeMux()
 	s := &Server{
@@ -97,6 +105,7 @@ func New(opts Options) *Server {
 
 const UserSessionName = "user_session"
 
+// ListenAndServe starts the server similarly to http.ListenAndServe.
 func (s *Server) ListenAndServe(addr string) error {
 	err := os.MkdirAll(s.TmpDir, 0700)
 	if err != nil {
@@ -105,16 +114,24 @@ func (s *Server) ListenAndServe(addr string) error {
 	return http.ListenAndServe(addr, s.mux)
 }
 
+// ListenAndServeTLS starts a server using HTTPS.
 func (s *Server) ListenAndServeTLS(addr, certFile, keyFile string) error {
 	return http.ListenAndServeTLS(addr, certFile, keyFile, s.mux)
 }
 
+// httpError wraps the HTTP status code and makes them usable as Go errors.
 type httpError int
 
 func (e httpError) Error() string {
 	return http.StatusText(int(e))
 }
 
+// handleError is a convenience wrapper that converts Go convention of returning
+// an error into an HTTP error. This kind of reporting is not possible if the
+// handler function has already written HTTP headers, but this rarely happens
+// in practice, but makes development much more convenient.
+//
+// TODO(salikh): Reconsider error reporting in production deployment.
 func handleError(fn func(http.ResponseWriter, *http.Request) error) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		err := fn(w, req)
@@ -134,6 +151,16 @@ func (s *Server) handleFavIcon(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "image/x-icon")
 	w.Write(favIcon)
 }
+
+// handleReport gets the file name from the HTTP request URI path component,
+// checks if the matching file (with .txt suffix) exists in the upload
+// directory, and serves it if it exists. If the file does not exists, it
+// serves a small piece of HTML with inline Javascript that automatically
+// reloads itself with exponential backoff. After a few retries it reports
+// generic error and stops autoreloading. Note that if the user manually refreshes
+// the page later, the same autoreload process is repeated. This process
+// is designed to handle the case of workers being overloaded with graing work
+// and producing reports with long delay.
 func (s *Server) handleReport(w http.ResponseWriter, req *http.Request) error {
 	if s.opts.AllowCORSOrigin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", s.opts.AllowCORSOrigin)
@@ -213,12 +240,15 @@ function refresh(t) {
 	return nil
 }
 
+// handleLogin handles Open ID Connect authentication.
 func (s *Server) handleLogin(w http.ResponseWriter, req *http.Request) error {
 	url := s.oauthConfig.AuthCodeURL(s.oauthState)
 	http.Redirect(w, req, url, http.StatusTemporaryRedirect)
 	return nil
 }
 
+// getUserInfo requests user profile by issuing an independent HTTP GET request
+// using the authentication code received by the callback.
 func (s *Server) getUserInfo(state string, code string) ([]byte, error) {
 	if state != s.oauthState {
 		return nil, fmt.Errorf("invalid oauth state")
@@ -239,6 +269,8 @@ func (s *Server) getUserInfo(state string, code string) ([]byte, error) {
 	return b, nil
 }
 
+// UserProfile defines the fiels that Open ID Connect server may return in
+// response to a profile request.
 type UserProfile struct {
 	ID            string `json:"id"`
 	Email         string `json:"email"`
@@ -250,6 +282,7 @@ type UserProfile struct {
 	Picture       string `json:"picture"`
 }
 
+// handleCallback handles the OAuth2 callback.
 func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error {
 	req.ParseForm()
 	b, err := s.getUserInfo(req.FormValue("state"), req.FormValue("code"))
@@ -280,6 +313,8 @@ func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error 
 	return nil
 }
 
+// handleProfile reports the current authentication data. This is mostly
+// useful for ad-hoc testing of authentication.
 func (s *Server) handleProfile(w http.ResponseWriter, req *http.Request) error {
 	session, err := s.cookieStore.Get(req, UserSessionName)
 	if err != nil {
@@ -296,6 +331,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+// handleLogout clears the user cookie.
 func (s *Server) handleLogout(w http.ResponseWriter, req *http.Request) error {
 	session, err := s.cookieStore.Get(req, UserSessionName)
 	if err != nil {
@@ -307,6 +343,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+// authenticate handles the authentication. If authentication or authorization
+// was not successful, it returns an error.
 func (s *Server) authenticate(w http.ResponseWriter, req *http.Request) error {
 	session, err := s.cookieStore.Get(req, UserSessionName)
 	if err != nil {
@@ -325,6 +363,7 @@ func (s *Server) authenticate(w http.ResponseWriter, req *http.Request) error {
 
 const maxUploadSize = 1048576
 
+// handleUpload handles the upload requests via web form.
 func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	if s.opts.AllowCORSOrigin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", s.opts.AllowCORSOrigin)
@@ -438,6 +477,7 @@ func (s *Server) ListenForReports(ch <-chan []byte) {
 	}
 }
 
+// uploadForm provides a simple web form for manual uploads.
 func (s *Server) uploadForm(w http.ResponseWriter, req *http.Request) error {
 	if s.opts.UseOpenID {
 		err := s.authenticate(w, req)
