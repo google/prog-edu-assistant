@@ -1,4 +1,10 @@
-// Binary tools is for quick testing of the queue.
+// Binary tool is for quick testing of the queue.
+// It expects a default installation of RabbitMQ to be running
+// on the default port (5672). The purpose of the tools
+// is to make it possible for people who are new to message queues
+// to play with the message queue and try it out for themselves.
+//
+// NOTE: This command is not needed for running production.
 package main
 
 import (
