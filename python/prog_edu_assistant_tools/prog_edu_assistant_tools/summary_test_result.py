@@ -1,3 +1,10 @@
+"""A package providing SummaryTestResult.
+
+This pacakge provides SummaryTestResult, which is an extensions
+of unittest.TextTestResult that also collects summary of test case
+statuses: True (passed) / False (failed/error) in a dictionary
+keyed by the 'TestClass.test_method'.
+"""
 import unittest
 
 

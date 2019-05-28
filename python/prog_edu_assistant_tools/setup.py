@@ -1,7 +1,13 @@
+"""A setup file for PIP pacakge.
+
+Usage:
+
+    python setup.py bdist_wheel
+"""
 import setuptools
 
 with open('README.md', 'r') as f:
-    long_description = f.read()
+    LONG_DESCRIPTION = f.read()
 
 setuptools.setup(
     name='prog_edu_assistant_tools',
@@ -10,7 +16,7 @@ setuptools.setup(
     author_email='salikh@gmail.com',
     description=
     'Tools for authoring programming assignments in Jupyter notebooks',
-    long_description=long_description,
+    long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
     url=
     'https://github.com/google/prog-edu-assistant/tree/master/python/notebook_tools',
