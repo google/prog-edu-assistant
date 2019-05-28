@@ -107,7 +107,7 @@ const UserSessionName = "user_session"
 
 // ListenAndServe starts the server similarly to http.ListenAndServe.
 func (s *Server) ListenAndServe(addr string) error {
-	err := os.MkdirAll(s.TmpDir, 0700)
+	err := os.MkdirAll(s.opts.UploadDir, 0700)
 	if err != nil {
 		return err
 	}
