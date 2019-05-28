@@ -1,12 +1,15 @@
 # Programming exercises
 
-This directory contains the programming exercises and their autograder scripts
-together.
+This directory contains the programming exercises in the form of the _master
+notebooks_. The autograding scripts are automatically extracted from the master
+notebooks.
 
-## Installation of the client environment
+## Installation of the student environment
 
 TODO(salikh): Provide a simpler version of installation instructions for the
-student environment, perhaps using Conda.
+student environment sing Conda.
+
+## Installation of the authoring environment
 
 Install virtualenv. The command may differ depending on the system.
 
@@ -19,9 +22,9 @@ Install virtualenv. The command may differ depending on the system.
 
 After that the setup procedure is common
 
-    virtualenv -p python3 venv  # Create the virtual Python environment in ./venv/
-    source ./venv/bin/activate  # Activate it.
-    pip install jupyter         # Install Jupyter (inside of ./venv).
+    virtualenv -p python3 ./venv  # Create the virtual Python environment in ./venv/
+    source ./venv/bin/activate    # Activate it.
+    pip install jupyter           # Install Jupyter (inside of ./venv).
 
 To start the Jupyter notebook run command
 
@@ -29,11 +32,11 @@ To start the Jupyter notebook run command
 
 There are two more necessary pieces to install:
 
-*  Some tools (utility functions and IPython magics) for using in master notebooks,
-   see [python/prog_edu_assistant_tools/README.md]
+*   Some tools (utility functions and IPython magics) for using in master
+    notebooks, see [../python/prog_edu_assistant_tools/README.md]
 
-*  Jupyter notebook extension for submitting student notebooks,
-   see [nbextensions/upload_it/README.md]
+*   Jupyter notebook extension for submitting student notebooks, see
+    [../nbextensions/upload_it/README.md]
 
 ## Structure of the programming assignment notebooks
 
@@ -92,7 +95,8 @@ level metadata of the next code cell, which designates it as a _solution cell_.
 
 The solution cell in the master notebook should contain the master solution,
 marked with IPython magic `%%solution`. If there is a pair of `# BEGIN SOLUTION`
-and `# END SOLUTION` markers, only that part will be removed.
+and `# END SOLUTION` markers, that part will be removed when generating the
+student notebook. Otherwise, the whole cell will be replaced by a placeholder.
 
     %%solution
     PI = 3.14
@@ -116,7 +120,7 @@ used _before_ the SOLUTION block:
     # END SOLUTION
 
 The cells that contain student-oriented tests should be marked with `TEST`.
-These typically using Python's `assert` builtin.
+These typically should use Python's `assert` builtin.
 
     # TEST
     assert(3.1 < PI && PI < 3.2)
@@ -129,20 +133,14 @@ notebook.
 The cells that are autograder scripts should be structured as standard Python
 unit tests using the `unittest` module. They need to have markers `BEGIN
 UNITTEST` and `END UNITTEST`. Only the lines between the markers are extracted
-into autograder scripts. The preamble before `BEGIN UNITTEST` is useful to set
-up the environment in a manner compatible with autograder environment, where
-'import submission' is prepended. In the notebook the recommended way is to use
-ad-hoc objects:
-
-    from types import SimpleNamespace
-    submission = SimpleNamespace(PI=PI)
+into autograder scripts. The environment that the unit test expects to find is
+provided by the cell magics `%%solution` and `%%submission`. The difference is
+that `%%solution` is expected to be correct, so it is executed in the context of
+the notebook similar to a regular code cell.
 
 The part of the cell after the `END UNITTEST` marker is also not written to
 autograder scripts. It is useful to run the tests in the notebook inline, e.g.
-using `%autotest` magic.
-
-TODO(salikh): Magic does not seem to be necessary, just a library function would
-work fine.
+using `autotest` function from the package `prog_edu_assistant_tools`.
 
 ## Structure of autograder scripts directories
 
@@ -157,7 +155,7 @@ Autograder tests are the tests that can be run in three environments:
     assignment notebooks. This mostly runs the same kind of tests as the master
     notebook, but in an automated manner.
 3.  In the autograder worker, against student submissions, to determine the
-    grading data.
+    grading result.
 
 The autograder scripts have two representations: the directory format and the
 notebook format. The notebook format is the authoritative source and is
@@ -167,25 +165,25 @@ notebooks.
 
 ### Autograder tests in master notebook
 
-The autograder tests use two special IPython magics. A cell with %%submission
+The autograder tests use two special IPython magics. A cell with `%%submission`
 cell magic sets up the environment with the given code as hypothetical student
-submission. A subsequent cells may use %autotest line magic to obtain grading
+submission. A subsequent cells may use `autotest` function to obtain grading
 results from a specific unit test and subsequently check them with assert
 statements.
 
         %%submission
-        PI = 3.5
+        PI = 4.5
 
-        result = %autotest TestPi
+        result, log = autotest(TestPi)
         assert(result.results["TestPi.test_between_3_and_4"] == false)
 
-### Autograder test directories (in autograder worker)
+### Autograder test directories
 
 In the directory format, all autograder scripts take the form of python unit
-tests (`*_test.py` files) runnable by the unittest runner. The student's
+tests (`*Test.py` files) runnable by the unittest runner. The student's
 submission or the master solution will be written into a `submission.py` file
-into the same directory (actually directory will be constructed using
-overlayfs).
+into the scratch directory together with copies of all autograder scripts (unit
+tests).
 
 Extraction of the student solution and matching of the solution against unit
 tests is done through metadata tags `assignment_id` and `exercise_id`. Following
@@ -194,6 +192,8 @@ notebook are implicitly assumed to test the last defined exercise.
 
 The exercise directory may also contain a special script `report.py` to to
 convert a vector of test outcomes into a human-readable report.
+
+TODO(salikh): Figure out a user-friendly and concise report format.
 
 ## List of the exercises
 
