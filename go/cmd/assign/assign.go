@@ -1,3 +1,18 @@
+// Binary assign is a tool to produce student notebooks and extract autograder scripts
+// from master notebooks.
+//
+// Usage:
+//
+//   go run cmd/assign/assign.go
+//     -command student
+//     -input ../exercies/helloworld-en-master.ipynb
+//     -output ./helloworld-student.ipynb
+//
+//   go run cmd/assign/assign.go
+//     -command autograder
+//     -input ../exercies/helloworld-en-master.ipynb
+//     -output ./autograder-dir
+//
 package main
 
 import (
