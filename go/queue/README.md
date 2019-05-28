@@ -1,10 +1,10 @@
-- Use RabbitMQ to post uploaded notebooks (< 1Mb) to a queue.
+# Quick notes on using message queue
 
-- Workers subscribe to the queue and post the reports back.
+-   Use RabbitMQ to post uploaded notebooks (< 1Mb) to a queue.
 
-- Server subscribes to the report queue and writes the reports to the blob
-  store.
+-   Workers subscribe to the queue and post the reports back.
 
-- For inspriation: https://github.com/python-discord/snekbox
+-   Server subscribes to the report queue and writes the reports to the upload
+    directory.
 
-
+-   For inspiration see: https://github.com/python-discord/snekbox

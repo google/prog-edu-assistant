@@ -61,6 +61,7 @@ func (ch *Channel) getQueue(queueName string) (amqp.Queue, error) {
 	return q, nil
 }
 
+// Post sends the specified byte slice content to the named queue.
 func (ch *Channel) Post(queueName string, content []byte) error {
 	q, err := ch.getQueue(queueName)
 	if err != nil {
@@ -77,7 +78,8 @@ func (ch *Channel) Post(queueName string, content []byte) error {
 		})
 }
 
-// Receive returns a channel that will deliver received messages.
+// Receive returns a (Go) channel that will deliver messages received on the
+// queue specified by a name.
 func (ch *Channel) Receive(queueName string) (<-chan []byte, error) {
 	q, err := ch.getQueue(queueName)
 	if err != nil {
