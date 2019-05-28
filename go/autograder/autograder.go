@@ -24,7 +24,7 @@ type Autograder struct {
 	// Dir points to the root directory of autograder scripts.
 	// Under Dir, the first level directory names are matched to assignment_id,
 	// second level to exercise_id. In the second-level directories,
-	// python unit test files should be present.
+	// python unit test files (*Test.py) should be present.
 	Dir string
 	// ScratchDir points to the directory where one can write, /tmp by default.
 	ScratchDir string
@@ -36,7 +36,7 @@ type Autograder struct {
 	DisableCleanup bool
 }
 
-// New creates a new autograder instance given the root directory.
+// New creates a new autograder instance given the autograder directory.
 func New(dir string) *Autograder {
 	return &Autograder{
 		Dir:        dir,
@@ -181,10 +181,9 @@ func (ag *Autograder) Grade(notebookBytes []byte) ([]byte, error) {
 	return b, nil
 }
 
-// nsjail -Mo --time_limit 2 --max_cpus 1 --rlimit_as 700 -E LANG=en_US.UTF-8 --disable_proc --chroot / --cwd $PWD --user nobody --group nogroup --iface_no_lo -- /usr/bin/python3 -m unittest discover -v -p '*Test.py'
-
 var outcomeRegex = regexp.MustCompile(`(test[a-zA-Z0-9_]*) \(([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_]*)\) \.\.\. (ok|FAIL|ERROR)`)
 
+// RunUnitTests runs all tests in a scratch directory found by a glob *Test.py.
 func (ag *Autograder) RunUnitTests(dir string) (map[string]bool, map[string]string, error) {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
@@ -205,8 +204,10 @@ func (ag *Autograder) RunUnitTests(dir string) (map[string]bool, map[string]stri
 		if !strings.HasSuffix(filename, "Test.py") {
 			continue
 		}
+		// nsjail -Mo --time_limit 2 --max_cpus 1 --rlimit_as 700 -E LANG=en_US.UTF-8 --disable_proc --chroot / --cwd $PWD --user nobody --group nogroup --iface_no_lo -- /usr/bin/python3 -m unittest discover -v -p '*Test.py'
 		cmd := exec.Command(ag.NSJailPath,
 			"-Mo",
+			// NSJail does not work under docker without these disable flags.
 			"--disable_clone_newcgroup",
 			"--disable_clone_newipc",
 			"--disable_clone_newnet",
@@ -264,6 +265,8 @@ func (ag *Autograder) RunUnitTests(dir string) (map[string]bool, map[string]stri
 	return outcomes, logs, nil
 }
 
+// RenderReports looks for report templates in the specified scratch dir and renders all reports.
+// It returns the concatenation of all reports output.
 func (ag *Autograder) RenderReports(dir string, data map[string]interface{}) ([]byte, error) {
 	err := os.Chdir(dir)
 	if err != nil {

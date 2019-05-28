@@ -1,4 +1,12 @@
 // Binary grade runs the autograder manually without a daemon.
+// It assumes that the scratch directory has been alread set up:
+// - autograder scripts files copied;
+// - submission.py and submission_source.py created.
+//
+// Usage:
+//
+//   go run cmd/grade/grade.go
+//     --autograder_dir ./autograder-scratch-dir
 package main
 
 import (
