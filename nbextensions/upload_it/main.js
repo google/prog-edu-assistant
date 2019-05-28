@@ -79,14 +79,26 @@ define([
             window.console.log("Uploading ", notebook.notebook_path, " to ", url, formdata);
             $.ajax({
               url: url,
+              xhrFields: {withCredentials: true},
               data: formdata,
               contentType: false,
               processData: false,
               method: "POST",
               success: function(data, status, jqXHR) {
-                window.console.log("Upload OK", data);
+                // Open the report in a new tab.
+                var u = new URL(url);
+                var reportURL = u.protocol + "//" + u.host + data;
+                window.open(reportURL, '_blank');
+                window.console.log("Upload OK", reportURL);
               },
               error: function(jqXHR, status, err) {
+                if (err == "Unauthorized") {
+                  window.console.log("Unauthorized, attempting login");
+                  let loginURL = new URL(configuration.upload_it_server_url);
+                  loginURL.pathname = '/login';
+                  window.open(loginURL, '_blank');
+                  return;
+                }
                 window.console.log("Upload failed", status, err);
               }
             });
