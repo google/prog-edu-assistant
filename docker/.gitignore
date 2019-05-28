@@ -1,0 +1,3 @@
+bin
+/worker/autograder
+/server/ca-certs
