@@ -1,4 +1,12 @@
 #!/bin/bash
+#
+# Build Docker images of upload server and worker.
+# Note: Message Queue uses stock RabbitMQ docker image.
+#
+# Usage:
+#
+#  ./build.sh
+#  docker-compose up
 
 function @execute() { echo "$@" >&2; "$@"; }
 
@@ -17,9 +25,6 @@ done
 @execute cp -L "bazel-bin/go/cmd/worker/linux_amd64_stripped/worker" "$DIR/worker/bin"
 @execute rm -rf "$DIR/server/bin" && mkdir "$DIR/server/bin"
 @execute cp -L "bazel-bin/go/cmd/uploadserver/linux_amd64_stripped/uploadserver" "$DIR/server/bin"
-
-# Copy root certificates
-@execute cp -rL /usr/share/ca-certificates "$DIR/server/ca-certs"
 
 @execute bazel run //go/cmd/uploadserver:docker -- --norun
 @execute bazel run //go/cmd/worker:docker -- --norun
