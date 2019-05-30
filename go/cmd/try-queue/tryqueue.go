@@ -1,6 +1,6 @@
-// Binary tool is for quick testing of the queue.
+// Binary try-queue is for quick testing of the queue.
 // It expects a default installation of RabbitMQ to be running
-// on the default port (5672). The purpose of the tools
+// on the default port (5672). The purpose of the tool
 // is to make it possible for people who are new to message queues
 // to play with the message queue and try it out for themselves.
 //
@@ -24,20 +24,20 @@ var (
 )
 
 type Cmd struct {
+	Name string
 	Help string
 	Func func() error
 }
 
-var commands = map[string]*Cmd{
-	"post":    &Cmd{"Post a message to a queue.", postCommand},
-	"receive": &Cmd{"Receive a single message from a queue.", receiveCommand},
-	"listen":  &Cmd{"Receive messages from a queue forever.", listenCommand},
+var commands = []*Cmd{
+	{"post", "Post a message to a queue.", postCommand},
+	{"receive", "Receive a single message from a queue.", receiveCommand},
+	{"listen", "Receive messages from a queue forever.", listenCommand},
 }
 
 func main() {
 	flag.Parse()
-	err := run()
-	if err != nil {
+	if err := run(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -46,12 +46,16 @@ func run() error {
 	if *command == "" {
 		fmt.Println("Error: --command not specified.")
 		fmt.Println("Available commands:")
-		for name, cmd := range commands {
-			fmt.Printf("  %s  %s\n", name, cmd.Help)
+		for _, cmd := range commands {
+			fmt.Printf("  %s  %s\n", cmd.Name, cmd.Help)
 		}
 		return nil
 	}
-	cmd, ok := commands[*command]
+	cmdMap := make(map[string]*Cmd)
+	for _, cmd := range commands {
+		cmdMap[cmd.Name] = cmd
+	}
+	cmd, ok := cmdMap[*command]
 	if !ok {
 		return fmt.Errorf("unknown command: %q", *command)
 	}
