@@ -6,6 +6,7 @@ import (
 )
 
 // Channel represents a connection to the queue service.
+// It is not thread-safe.
 type Channel struct {
 	*amqp.Connection
 	*amqp.Channel
@@ -42,22 +43,22 @@ func (ch *Channel) Close() error {
 }
 
 func (ch *Channel) getQueue(queueName string) (amqp.Queue, error) {
-	q, ok := ch.queues[queueName]
-	if !ok {
-		var err error
-		q, err = ch.Channel.QueueDeclare(
-			queueName,
-			false, // durable
-			false, // delete when unused
-			false, // exclusive
-			false, // no-wait
-			nil,   // extra arguments
-		)
-		if err != nil {
-			return amqp.Queue{}, err
-		}
-		ch.queues[queueName] = q
+	if q, ok := ch.queues[queueName]; ok {
+		return q, nil
 	}
+	var err error
+	q, err := ch.Channel.QueueDeclare(
+		queueName,
+		false, // durable
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,   // extra arguments
+	)
+	if err != nil {
+		return amqp.Queue{}, err
+	}
+	ch.queues[queueName] = q
 	return q, nil
 }
 
@@ -79,7 +80,8 @@ func (ch *Channel) Post(queueName string, content []byte) error {
 }
 
 // Receive returns a (Go) channel that will deliver messages received on the
-// queue specified by a name.
+// queue specified by a name. The caller should read all entries from the returned
+// channel. Otherwise, the channel and an internal goroutine leak.
 func (ch *Channel) Receive(queueName string) (<-chan []byte, error) {
 	q, err := ch.getQueue(queueName)
 	if err != nil {
