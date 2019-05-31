@@ -6,7 +6,14 @@ services:
     ports:
       - "8000:8000"
     image: server:latest
-    entrypoint: ['/usr/local/bin/uploadserver', '-upload_dir', '/tmp', '-logtostderr', '-v', '3', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-allow_cors_origin', 'http://localhost:8888']
+    entrypoint: ['/usr/local/bin/uploadserver', '-upload_dir', '/tmp', '-logtostderr', '-v', '3', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-allow_cors_origin', 'http://localhost:8888', '-use_openid']
+    env_file:
+      # ./secret.env should define the follwing variables (note: values should not use quotes)
+      #CLIENT_ID=<an OAuth2 client ID obtained from the Open ID Connect provider>
+      #CLIENT_SECRET=<an OAuth2 client secret obtained from the Open ID Connect provider>
+      #COOKIE_AUTH_KEY=<random string of 16 characters>
+      #COOKIE_ENCRYPT_KEY=<random string of 16 or 32 characters>
+      - secret.env
     read_only: true
     tmpfs: /tmp
     #image: bazel/go/cmd/uploadserver:docker
