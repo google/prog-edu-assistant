@@ -98,7 +98,8 @@ class MyMagics(magic.Magics):
             self.shell.ev(line))
         errors = io.StringIO()
         result = unittest.TextTestRunner(
-            verbosity=4, stream=errors,
+            verbosity=4,
+            stream=errors,
             resultclass=summary_test_result.SummaryTestResult).run(suite)
         return result, errors.getvalue()
 
@@ -206,10 +207,10 @@ class MyMagics(magic.Magics):
         # Render the template giving the specified variable as 'results',
         # and render the result as inlined HTML in cell output. 'source' is
         # the prerendered source code.
-        return display.HTML(template.render(
-            results=results,
-            source=source,
-            formatted_source=formatted_source))
+        return display.HTML(
+            template.render(results=results,
+                            source=source,
+                            formatted_source=formatted_source))
 
 
 def load_ipython_extension(ipython):
