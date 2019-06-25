@@ -1,17 +1,27 @@
+"""magics --- make assignment authoring easier.
+
+This python package provides functions and magics that make authoring
+of master assignment notebooks more convenient. The functionality it provides:
+
+* Capture canonical solution with %%solution magic
+* Anticipate incorrect submissions and test them with %%submission magic
+* Create report templates with %%template magic
+* Use autotest() and report() functions to run the tests and render
+  reports right in the notebook.
+"""
 import io
 import re
 import sys
+import types
 import unittest
 
-from IPython.core.display import HTML
-from IPython.core.magic import (Magics, magics_class, line_magic, cell_magic,
-                                line_cell_magic)
-from jinja2 import Template
-from prog_edu_assistant_tools.summary_test_result import SummaryTestResult
+from IPython.core import display
+from IPython.core import magic
+import jinja2
+from prog_edu_assistant_tools import summary_test_result
+import pygments
 from pygments import formatters
-from pygments import highlight
-from pygments.lexers import PythonLexer
-from types import SimpleNamespace
+from pygments import lexers
 
 
 def autotest(testClass):
@@ -27,9 +37,10 @@ def autotest(testClass):
     """
     suite = unittest.TestLoader().loadTestsFromTestCase(testClass)
     errors = io.StringIO()
-    result = unittest.TextTestRunner(verbosity=4,
-                                     stream=errors,
-                                     resultclass=SummaryTestResult).run(suite)
+    result = unittest.TextTestRunner(
+        verbosity=4,
+        stream=errors,
+        resultclass=summary_test_result.SummaryTestResult).run(suite)
     return result, errors.getvalue()
 
 
@@ -40,26 +51,24 @@ def report(template, **kwargs):
 
         report(template, source=submission_source.source, results=results)
 
-    The keyword arguments are forwarded to the invocation of `template.render()`.
-    The `source` keyword argument is piped through syntax highlighter before
-    forwarding, and the original raw source is instead passed as `raw_source`
-    keyword argument.
+    The keyword arguments are forwarded to the invocation of
+    `template.render()`.  If `source` keyword argument is present, a
+    syntax-highlighted HTML copy of it is additionally passed with
+    `formatted_source` keyword argument.
     """
     if 'source' in kwargs:
-        # TODO(salikh): Avoid rewriting user input.
-        kwargs['raw_source'] = kwargs['source']
-        kwargs['source'] = highlight(kwargs['source'], PythonLexer(),
-                                     formatters.HtmlFormatter())
+        kwargs['formatted_source'] = pygments.highlight(
+            kwargs['source'], lexers.PythonLexer(), formatters.HtmlFormatter())
     # Render the template giving the specified variable as 'results',
     # and render the result as inlined HTML in cell output. 'source' is
     # the prerendered source code.
-    return HTML(template.render(**kwargs))
+    return display.HTML(template.render(**kwargs))
 
 
 # The class MUST call this class decorator at creation time
-@magics_class
-class MyMagics(Magics):
-    @line_magic
+@magic.magics_class
+class MyMagics(magic.Magics):
+    @magic.line_magic
     def autotest(self, line):
         """Run the unit tests inline
 
@@ -83,7 +92,7 @@ class MyMagics(Magics):
         errors = io.StringIO()
         result = unittest.TextTestRunner(
             verbosity=4, stream=errors,
-            resultclass=SummaryTestResult).run(suite)
+            resultclass=summary_test_result.SummaryTestResult).run(suite)
         return result, errors.getvalue()
 
     def lmagic(self, line):
@@ -97,7 +106,7 @@ class MyMagics(Magics):
         'my cell magic'
         return line, cell
 
-    @cell_magic
+    @magic.cell_magic
     def submission(self, line, cell):
         """Registers a submission_source and submission, if the code can run.
 
@@ -106,7 +115,7 @@ class MyMagics(Magics):
         """
 
         # Copy the source into submission_source.source
-        self.shell.user_ns['submission_source'] = SimpleNamespace(
+        self.shell.user_ns['submission_source'] = types.SimpleNamespace(
             source=cell.rstrip())
 
         env = {}
@@ -119,9 +128,9 @@ class MyMagics(Magics):
             self.shell.user_ns['submission'] = None
             return None
         # Copy the modifications into submission object.
-        self.shell.user_ns['submission'] = SimpleNamespace(**env)
+        self.shell.user_ns['submission'] = types.SimpleNamespace(**env)
 
-    @cell_magic
+    @magic.cell_magic
     def solution(self, line, cell):
         """Registers solution and evaluates it.
 
@@ -141,20 +150,21 @@ class MyMagics(Magics):
         cell = re.sub('(?ms)^[ \t]*# (BEGIN|END) SOLUTION[ \t]*\n?', '', cell)
 
         # Copy the source into submission_source.source
-        self.shell.user_ns['submission_source'] = SimpleNamespace(
+        self.shell.user_ns['submission_source'] = types.SimpleNamespace(
             source=cell.rstrip())
 
+        # Capture the changes produced by solution code in env.
         env = {}
-        # Note: if solution throws exception, this breaks the execution. Solution must be correct!
-        # TODO(salikh): Use self.shell.ex() instead of exec().
+        # Note: if solution throws exception, this breaks the notebook
+        # execution, and this is intended. Solution must be correct!
         exec(cell, self.shell.user_ns, env)
         # Copy the modifications into submission object.
-        self.shell.user_ns['submission'] = SimpleNamespace(**env)
+        self.shell.user_ns['submission'] = types.SimpleNamespace(**env)
         # Copy the modifications into user_ns
         for k in env:
             self.shell.user_ns[k] = env[k]
 
-    @cell_magic
+    @magic.cell_magic
     def template(self, line, cell):
         """Registers a template for report generation.
 
@@ -176,9 +186,9 @@ class MyMagics(Magics):
         if line == '':
             name = 'report_template'
         # Define a Jinja2 template based on cell contents.
-        self.shell.user_ns[name] = Template(cell)
+        self.shell.user_ns[name] = jinja2.Template(cell)
 
-    @cell_magic
+    @magic.cell_magic
     def report(self, line, cell):
         """Renders the named template.
 
@@ -190,14 +200,16 @@ class MyMagics(Magics):
         template_name = cell
         template = self.shell.ev(template_name)
         results = self.shell.ev(var_name)
-        highlighted_source = highlight(
-            self.shell.user_ns['submission_source'].source, PythonLexer(),
-            formatters.HtmlFormatter())
+        source = self.shell.user_ns['submission_source'].source
+        formatted_source = pygments.highlight(source, lexers.PythonLexer(),
+                                              formatters.HtmlFormatter())
         # Render the template giving the specified variable as 'results',
         # and render the result as inlined HTML in cell output. 'source' is
         # the prerendered source code.
-        return HTML(template.render(results=results,
-                                    source=highlighted_source))
+        return display.HTML(template.render(
+            results=results,
+            source=source,
+            formatted_source=formatted_source))
 
 
 def load_ipython_extension(ipython):
