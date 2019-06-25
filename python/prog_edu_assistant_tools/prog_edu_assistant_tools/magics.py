@@ -131,7 +131,7 @@ class MyMagics(Magics):
         top context,
         making it possible to refer to the functions and variables in subsequent
         notebook cells.
-    """
+        """
 
         # Cut out PROMPT
         cell = re.sub(
