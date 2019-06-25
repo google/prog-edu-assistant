@@ -19,8 +19,7 @@ class SummaryTestResult(unittest.TextTestResult):
     separator2 = "-" * 70
 
     def __init__(self, stream, descriptions, verbosity):
-        super(unittest.TextTestResult, self).__init__(stream, descriptions,
-                                                      verbosity)
+        super().__init__(stream, descriptions, verbosity)
         # A map of test name to True(passed) or False(failed or error)
         self.results = {}
         # Copied from TextTestResult.
@@ -48,14 +47,14 @@ class SummaryTestResult(unittest.TextTestResult):
             return str(test)
 
     def startTest(self, test):
-        super(unittest.TextTestResult, self).startTest(test)
+        super().startTest(test)
         if self.showAll:
             self.stream.write(self.getDescription(test))
             self.stream.write(" ... ")
             self.stream.flush()
 
     def addSuccess(self, test):
-        super(unittest.TextTestResult, self).addSuccess(test)
+        super().addSuccess(test)
         if self.showAll:
             self.stream.writeln("ok")
         elif self.dots:
@@ -64,7 +63,7 @@ class SummaryTestResult(unittest.TextTestResult):
         self.results[self.testName(test)] = True
 
     def addError(self, test, err):
-        super(unittest.TextTestResult, self).addError(test, err)
+        super().addError(test, err)
         if self.showAll:
             self.stream.writeln("ERROR")
         elif self.dots:
@@ -73,7 +72,7 @@ class SummaryTestResult(unittest.TextTestResult):
         self.results[self.testName(test)] = False
 
     def addFailure(self, test, err):
-        super(unittest.TextTestResult, self).addFailure(test, err)
+        super().addFailure(test, err)
         if self.showAll:
             self.stream.writeln("FAIL")
         elif self.dots:
@@ -82,7 +81,7 @@ class SummaryTestResult(unittest.TextTestResult):
         self.results[self.testName(test)] = False
 
     def addSkip(self, test, reason):
-        super(unittest.TextTestResult, self).addSkip(test, reason)
+        super().addSkip(test, reason)
         if self.showAll:
             self.stream.writeln("skipped {0!r}".format(reason))
         elif self.dots:
@@ -90,7 +89,7 @@ class SummaryTestResult(unittest.TextTestResult):
             self.stream.flush()
 
     def addExpectedFailure(self, test, err):
-        super(unittest.TextTestResult, self).addExpectedFailure(test, err)
+        super().addExpectedFailure(test, err)
         if self.showAll:
             self.stream.writeln("expected failure")
         elif self.dots:
@@ -98,7 +97,7 @@ class SummaryTestResult(unittest.TextTestResult):
             self.stream.flush()
 
     def addUnexpectedSuccess(self, test):
-        super(unittest.TextTestResult, self).addUnexpectedSuccess(test)
+        super().addUnexpectedSuccess(test)
         if self.showAll:
             self.stream.writeln("unexpected success")
         elif self.dots:
