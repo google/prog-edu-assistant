@@ -207,5 +207,5 @@ def load_ipython_extension(ipython):
     instance. We can register the magic with the
     `register_magic_function` method of the shell
     instance.
-  """
+    """
     ipython.register_magics(MyMagics)
