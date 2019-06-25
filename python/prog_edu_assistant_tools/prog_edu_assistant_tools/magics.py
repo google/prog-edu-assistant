@@ -15,12 +15,15 @@ from types import SimpleNamespace
 
 
 def autotest(testClass):
-    """Non-magic version of the autotest.
+    """Runs one unit test and returns the test result.
 
+    This is a non-magic version of the %autotest.
     This function can be used as
 
         result, log = autotest(MyTestCase)
 
+    Returns: A 2-tuple of a SummaryTestResult objct and a string holding verbose
+    test logs.
     """
     suite = unittest.TestLoader().loadTestsFromTestCase(testClass)
     errors = io.StringIO()
@@ -35,8 +38,12 @@ def report(template, **kwargs):
 
     This function can be used as
 
-        report(template, submission_source.source, results)
+        report(template, source=submission_source.source, results=results)
 
+    The keyword arguments are forwarded to the invocation of `template.render()`.
+    The `source` keyword argument is piped through syntax highlighter before
+    forwarding, and the original raw source is instead passed as `raw_source`
+    keyword argument.
     """
     if 'source' in kwargs:
         # TODO(salikh): Avoid rewriting user input.
@@ -56,9 +63,19 @@ class MyMagics(Magics):
     def autotest(self, line):
         """Run the unit tests inline
 
-        Returns the result object. result.results is a summary dictionary of
-        outcomes.
-        result.errors
+        Returns the TestResult object. Notable fields in the result object:
+
+        * `result.results` is a summary dictionary of
+          outcomes, with keys named TestClass.test_case
+          and boolean values (True: test passed, False: test failed
+          or an error occurred).
+          TODO(salikh): Decide whether to remove or document ad-hoc
+          entries in the outcome map:
+          * 'test_file.py' (set to False if the tests has any issues,
+            or set to True if all test cases passed)
+
+        * `result.errors`, `result.failures`, `result.skipped` and other
+          fields are computed as documented in unittest.TestResult.
         """
 
         suite = unittest.TestLoader().loadTestsFromTestCase(
@@ -86,7 +103,7 @@ class MyMagics(Magics):
 
         This magic is useful for auto-testing (testing autograder unit tests on
         incorrect inputs)
-    """
+        """
 
         # Copy the source into submission_source.source
         self.shell.user_ns['submission_source'] = SimpleNamespace(
@@ -141,11 +158,19 @@ class MyMagics(Magics):
     def template(self, line, cell):
         """Registers a template for report generation.
 
-        Use {{results['TestClassName.test_method']}} to extract specific
-        outcomes and be prepared
-        for the keys to be absent in the results map, if the test could not be
-        run at all (e.g. because
-        of syntax error in the submission).
+        Args:
+        * line: The string with the contents of the remainder of the line
+          starting with %%template.
+        * cell: The string with the contents of the code cell, excluding
+          the line with %%template marker.
+
+        Hint: Use {{results['TestClassName.test_method']}} to extract specific
+        outcomes and be prepared for the individual test case keys to be absent
+        in the results map, if the test could not be run at all (e.g. because of
+        syntax error in the submission). The corresponding test outcome map
+        should be passed to the template invocation with keyword argument:
+        `results=result.results` where `result` is an instance of
+        `SummaryTestResult` returned by `autotest()`.
         """
         name = line
         if line == '':
