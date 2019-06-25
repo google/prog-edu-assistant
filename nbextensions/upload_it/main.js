@@ -23,7 +23,7 @@ define([
   "use strict";
 
   // Default values for the configuration parameters.
-  let configuration = {
+  const configuration = {
     "upload_it_server_url": "http://localhost:8000/upload"
   };
 
@@ -41,7 +41,7 @@ define([
   function updateConfig() {
     // If the notebook has configuration overrides, pick them up.
     const config = Jupyter.notebook.config;
-    for (let key in configuration) {
+    for (const key in configuration) {
       if (config.data.hasOwnProperty(key)) {
         configuration[key] = config.data[key];
       }
@@ -72,7 +72,7 @@ define([
           "click": function () {
             const notebook = Jupyter.notebook;
             const url = configuration.upload_it_server_url;
-            let formdata = new FormData();
+            const formdata = new FormData();
             const content = JSON.stringify(Jupyter.notebook.toJSON(), null, 2);
             const blob = new Blob([content], { type: "application/x-ipynb+json"});
             formdata.set("notebook", blob);
@@ -86,7 +86,7 @@ define([
               method: "POST",
               success: function(data, status, jqXHR) {
                 // Open the report in a new tab.
-                let reportURL = new URL(url);
+                const reportURL = new URL(url);
                 reportURL.pathname = data;
                 window.console.log("Upload OK, opening report at ", reportURL.toString());
                 window.open(reportURL, '_blank');
@@ -94,7 +94,7 @@ define([
               error: function(jqXHR, status, err) {
                 if (err == "Unauthorized") {
                   window.console.log("Unauthorized, attempting login");
-                  let loginURL = new URL(configuration.upload_it_server_url);
+                  const loginURL = new URL(configuration.upload_it_server_url);
                   loginURL.pathname = '/login';
                   window.open(loginURL, '_blank');
                   return;
