@@ -181,10 +181,14 @@ class MyMagics(magic.Magics):
         should be passed to the template invocation with keyword argument:
         `results=result.results` where `result` is an instance of
         `SummaryTestResult` returned by `autotest()`.
+
+        Warning: %%template must not use triple-quotes inside.
         """
         name = line
         if line == '':
             name = 'report_template'
+        if re.search('"""', cell):
+            raise Exception("%%template must not use triple-quotes")
         # Define a Jinja2 template based on cell contents.
         self.shell.user_ns[name] = jinja2.Template(cell)
 
