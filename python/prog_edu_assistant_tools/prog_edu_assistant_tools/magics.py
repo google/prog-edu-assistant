@@ -8,7 +8,7 @@ from IPython.core.magic import (Magics, magics_class, line_magic, cell_magic,
                                 line_cell_magic)
 from jinja2 import Template
 from prog_edu_assistant_tools.summary_test_result import SummaryTestResult
-from pygments.formatters import HtmlFormatter
+from pygments import formatters
 from pygments import highlight
 from pygments.lexers import PythonLexer
 from types import SimpleNamespace
@@ -49,7 +49,7 @@ def report(template, **kwargs):
         # TODO(salikh): Avoid rewriting user input.
         kwargs['raw_source'] = kwargs['source']
         kwargs['source'] = highlight(kwargs['source'], PythonLexer(),
-                                     HtmlFormatter())
+                                     formatters.HtmlFormatter())
     # Render the template giving the specified variable as 'results',
     # and render the result as inlined HTML in cell output. 'source' is
     # the prerendered source code.
@@ -192,7 +192,7 @@ class MyMagics(Magics):
         results = self.shell.ev(var_name)
         highlighted_source = highlight(
             self.shell.user_ns['submission_source'].source, PythonLexer(),
-            HtmlFormatter())
+            formatters.HtmlFormatter())
         # Render the template giving the specified variable as 'results',
         # and render the result as inlined HTML in cell output. 'source' is
         # the prerendered source code.
