@@ -10,7 +10,6 @@ from IPython.core import ultratb
 # pylint: disable=too-few-public-methods
 class TbFormatter:
     '''TbFormatter formats tracebacks of exceptions using IPython formatter.'''
-
     def __init__(self, tb_offset=0, color='Neutral'):
         self.syntax_tb = ultratb.SyntaxTB(color_scheme=color)
         self.interactive_tb = ultratb.AutoFormattedTB(mode='Context',
