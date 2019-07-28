@@ -245,6 +245,7 @@ func (n *Notebook) MapCells(mapFunc func(c *Cell) ([]*Cell, error)) (*Notebook, 
 var (
 	assignmentMetadataRegex     = regexp.MustCompile("(?m)^[ \t]*# ASSIGNMENT METADATA")
 	exerciseMetadataRegex       = regexp.MustCompile("(?m)^[ \t]*# EXERCISE METADATA")
+	languageMetadataRegex       = regexp.MustCompile("\\*\\*lang:([a-z]{2})\\*\\*")
 	tripleBacktickedRegex       = regexp.MustCompile("(?ms)^```([^`]|`[^`]|``[^`])*^```")
 	testMarkerRegex             = regexp.MustCompile("(?ms)^[ \t]*# TEST[^\n]*[\n]*")
 	studentTestRegex            = regexp.MustCompile("(?ms)^[ \t]*#? ?%%studenttest(?:[ \t]+([a-zA-Z][a-zA-Z0-9_]*))[ \t]*[\n]*")
@@ -329,11 +330,52 @@ func extractMetadata(re *regexp.Regexp, source string) (metadata map[string]inte
 	return
 }
 
+// Language represents a type of natural languages in which a cell is written.
+type Language int
+
+const (
+	English Language = iota
+	Japanese
+	AnyLanguage
+)
+
+func (l Language) String() string {
+	switch l {
+	case English:
+		return "en"
+	case Japanese:
+		return "ja"
+	default:
+		return ""
+	}
+}
+
+func (l Language) filterText(s string) string {
+	// If no language is specified, use s by removing language metadata.
+	if l == AnyLanguage {
+		return languageMetadataRegex.ReplaceAllString(s, "")
+	}
+
+	var ms [][]byte
+	if ms = languageMetadataRegex.FindSubmatch([]byte(s)); len(ms) == 0 {
+		// We always use a cell as is where no language is specified.
+		return s
+	}
+
+	// If the language used in the cell is different from l, return the empty string.
+	if string(ms[1]) != l.String() {
+		return ""
+	}
+
+	// Use s by removing language metadata.
+	return languageMetadataRegex.ReplaceAllString(s, "")
+}
+
 // CleanForStudent takes a code cell and produces a clean student version,
 // i.e. it removes the # TEST markers, replaces %%solution with a placeholder,
 // drops the unit tests etc. If the cell needs to be dropped, this function
 // returns nil.
-func CleanForStudent(cell *Cell, assignmentMetadata, exerciseMetadata map[string]interface{}) (*Cell, error) {
+func CleanForStudent(cell *Cell, assignmentMetadata, exerciseMetadata map[string]interface{}, lang Language) (*Cell, error) {
 	if cell.Type == "markdown" {
 		if masterOnlyMarkerRegex.MatchString(cell.Source) {
 			// Skip # MASTER ONLY
@@ -460,7 +502,7 @@ func CleanForStudent(cell *Cell, assignmentMetadata, exerciseMetadata map[string
 }
 
 // ToStudent converts a master notebook into the student notebook.
-func (n *Notebook) ToStudent() (*Notebook, error) {
+func (n *Notebook) ToStudent(lang Language) (*Notebook, error) {
 	// Assignment metadata is global for the notebook.
 	assignmentMetadata := make(map[string]interface{})
 	// Exercise metadata only applies to the next code block,
@@ -490,8 +532,11 @@ func (n *Notebook) ToStudent() (*Notebook, error) {
 			}
 		}
 		if cell.Type == "markdown" {
-			if masterOnlyMarkerRegex.MatchString(cell.Source) {
+			if masterOnlyMarkerRegex.MatchString(source) {
 				// Skip # MASTER ONLY
+				return nil, nil
+			}
+			if source = lang.filterText(source); len(source) == 0 {
 				return nil, nil
 			}
 		}
@@ -511,7 +556,7 @@ func (n *Notebook) ToStudent() (*Notebook, error) {
 			return nil, nil
 		}
 		if m := solutionMagicRegex.FindStringIndex(source); m != nil {
-			clean, err := CleanForStudent(cell, assignmentMetadata, exerciseMetadata)
+			clean, err := CleanForStudent(cell, assignmentMetadata, exerciseMetadata, lang)
 			if err != nil {
 				return nil, err
 			}
@@ -631,7 +676,7 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 			// Create an inline test.
 			for _, c := range globalContext {
 				// Create a clean student version of a code cell.
-				clean, err := CleanForStudent(c, assignmentMetadata, exerciseMetadata)
+				clean, err := CleanForStudent(c, assignmentMetadata, exerciseMetadata, AnyLanguage)
 				if err != nil {
 					return nil, err
 				}
@@ -680,7 +725,7 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 				Source:   text,
 			}}, nil
 		} else if m := solutionMagicRegex.FindStringIndex(source); m != nil {
-			clean, err := CleanForStudent(cell, assignmentMetadata, exerciseMetadata)
+			clean, err := CleanForStudent(cell, assignmentMetadata, exerciseMetadata, AnyLanguage)
 			if err != nil {
 				return nil, err
 			}

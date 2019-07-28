@@ -32,6 +32,8 @@ var (
 		"The file name of the input master notebook.")
 	output = flag.String("output", "",
 		"The file name of the output. If empty, output is written to stdout.")
+	language = flag.String("language", "",
+		"The language that should be used in the output notebook.")
 )
 
 type commandDesc struct {
@@ -82,12 +84,29 @@ func parseCommand() error {
 	return nil
 }
 
+func parseLanguage(l string) (notebook.Language, error) {
+	switch l {
+	case "ja":
+		return notebook.Japanese, nil
+	case "en":
+		return notebook.English, nil
+	case "":
+		return notebook.AnyLanguage, nil
+	default:
+		return notebook.AnyLanguage, fmt.Errorf("unknown language: %s", l)
+	}
+}
+
 func studentCommand() error {
+	l, err := parseLanguage(*language)
+	if err != nil {
+		return err
+	}
 	n, err := notebook.ParseFile(*input)
 	if err != nil {
 		return err
 	}
-	n, err = n.ToStudent()
+	n, err = n.ToStudent(l)
 	if err != nil {
 		return err
 	}
@@ -111,6 +130,7 @@ func autograderCommand() error {
 	if err != nil {
 		return err
 	}
+
 	assignmentID := n.Metadata["assignment_id"].(string)
 	if *output == "" {
 		fmt.Print("## Dry run mode. Would generate the following files:\n\n")

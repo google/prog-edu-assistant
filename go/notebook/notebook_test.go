@@ -152,7 +152,7 @@ x = 1
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n := createNotebook(tt.input)
-			got, err := n.ToStudent()
+			got, err := n.ToStudent(AnyLanguage)
 			if err != nil {
 				t.Errorf("ToStudent([%s]) returned error %s, want success",
 					strings.Join(tt.input, "]["), err)
