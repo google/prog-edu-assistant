@@ -86,7 +86,7 @@ checked against the expected one.
 
 Autograder tests are performed by providing an potentially incorrect submission
 using `%%submission` cell magic, and running the unit test using `autotest`
-funciont. The resulting outcome vector can be checked using plain Python
+functionality. The resulting outcome vector can be checked using plain Python
 `assert` statements.
 
 ### Report scripts
