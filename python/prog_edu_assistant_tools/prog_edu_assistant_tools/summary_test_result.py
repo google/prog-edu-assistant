@@ -7,6 +7,7 @@ keyed by the 'TestClass.test_method'.
 """
 import unittest
 
+
 def test_name(test):
     """A helper function to format the test as a human-readable string.
 
@@ -17,6 +18,7 @@ def test_name(test):
     """
     return unittest.util.strclass(test.__class__).replace(
         "__main__.", "") + "." + test._testMethodName  # pylint: disable=W0212
+
 
 class SummaryTestResult(unittest.TextTestResult):
     """A small extension of TextTestResult that also collects a map of test statuses.

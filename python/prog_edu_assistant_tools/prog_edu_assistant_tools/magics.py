@@ -75,7 +75,6 @@ class MyMagics(magic.Magics):
 
     This class serves as a namespace to hold the IPython magics.
     """
-
     @magic.line_magic
     def autotest(self, line):
         """Run the unit tests inline
@@ -205,8 +204,10 @@ class MyMagics(magic.Magics):
         template = self.shell.ev(template_name)
         results = self.shell.ev(var_name)
         source = self.shell.user_ns['submission_source'].source
-        formatted_source = pygments.highlight(source, lexers.PythonLexer(),  # pylint: disable=E1101
-                                              formatters.HtmlFormatter())  # pylint: disable=E1101
+        formatted_source = pygments.highlight(
+            source,
+            lexers.PythonLexer(),  # pylint: disable=E1101
+            formatters.HtmlFormatter())  # pylint: disable=E1101
         # Render the template giving the specified variable as 'results',
         # and render the result as inlined HTML in cell output. 'source' is
         # the prerendered source code.
