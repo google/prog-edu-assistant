@@ -111,16 +111,17 @@ class MyMagics(magic.Magics):
         incorrect inputs)
         """
 
+        _ = line  # Unused.
         # Copy the source into submission_source.source
         self.shell.user_ns['submission_source'] = types.SimpleNamespace(
             source=cell.rstrip())
 
         env = {}
         try:
-            exec(cell, self.shell.user_ns, env)
-        except Exception as e:
+            exec(cell, self.shell.user_ns, env)  # pylint: disable=W0122
+        except Exception as ex:  # pylint: disable=W0703
             # Ignore execution errors -- just print them.
-            print('Exception while executing submission:\n', e)
+            print('Exception while executing submission:\n', ex)
             # If the code cannot be executed, leave the submission empty.
             self.shell.user_ns['submission'] = None
             return
@@ -138,6 +139,7 @@ class MyMagics(magic.Magics):
         making it possible to refer to the functions and variables in subsequent
         notebook cells.
         """
+        _ = line  # Unused.
 
         # Cut out PROMPT
         cell = re.sub(
@@ -154,7 +156,7 @@ class MyMagics(magic.Magics):
         env = {}
         # Note: if solution throws exception, this breaks the notebook
         # execution, and this is intended. Solution must be correct!
-        exec(cell, self.shell.user_ns, env)
+        exec(cell, self.shell.user_ns, env)  # pylint: disable=W0122
         # Copy the modifications into submission object.
         self.shell.user_ns['submission'] = types.SimpleNamespace(**env)
         # Copy the modifications into user_ns
