@@ -1,3 +1,4 @@
+absl-py
 ipython
 Jinja2
 jupyter
@@ -6,3 +7,5 @@ numpy
 pandas
 plotly_express
 Pygments
+pylint
+yapf
