@@ -92,4 +92,4 @@ funciont. The resulting outcome vector can be checked using plain Python
 ### Report scripts
 
 Report scripts are used by the autograder to provide human-readable feedback
-without necesserily revealing the autograder tests themselves.
+without necessarily revealing the autograder tests themselves.
