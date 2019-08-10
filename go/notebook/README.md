@@ -6,7 +6,7 @@ autograder directory with the tests.
 
 This tool is very similar to jassign (https://github.com/okpy/jassign), but the
 requirement set is slightly different, and jassign seems to be a quite young
-project, so it did not look appropriate to reuse . However, given the goals are
+project, so it did not look appropriate to reuse. However, given the goals are
 very similar, it is possible we may consider reusing jassign or merging to it.
 Parts of the syntax has been made compatible with jassign.
 
