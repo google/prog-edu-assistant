@@ -1,0 +1,8 @@
+ipython
+Jinja2
+jupyter
+jupyter_nbextensions_configurator
+numpy
+pandas
+plotly_express
+Pygments
