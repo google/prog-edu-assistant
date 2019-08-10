@@ -23,6 +23,7 @@ from pygments import lexers
 
 from prog_edu_assistant_tools import summary_test_result
 
+
 def autotest(test_class):
     """Runs one unit test and returns the test result.
 
@@ -60,7 +61,7 @@ def report(template, **kwargs):
     """
     if 'source' in kwargs:
         kwargs['formatted_source'] = pygments.highlight(
-            kwargs['source'], lexers.PythonLexer(), formatters.HtmlFormatter())
+            kwargs['source'], lexers.PythonLexer(), formatters.HtmlFormatter())  # pylint: disable=E1101
     # Render the template giving the specified variable as 'results',
     # and render the result as inlined HTML in cell output. 'source' is
     # the prerendered source code.
@@ -204,8 +205,8 @@ class MyMagics(magic.Magics):
         template = self.shell.ev(template_name)
         results = self.shell.ev(var_name)
         source = self.shell.user_ns['submission_source'].source
-        formatted_source = pygments.highlight(source, lexers.PythonLexer(),
-                                              formatters.HtmlFormatter())
+        formatted_source = pygments.highlight(source, lexers.PythonLexer(),  # pylint: disable=E1101
+                                              formatters.HtmlFormatter())  # pylint: disable=E1101
         # Render the template giving the specified variable as 'results',
         # and render the result as inlined HTML in cell output. 'source' is
         # the prerendered source code.

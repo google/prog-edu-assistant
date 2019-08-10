@@ -7,6 +7,16 @@ keyed by the 'TestClass.test_method'.
 """
 import unittest
 
+def test_name(test):
+    """A helper function to format the test as a human-readable string.
+
+    The format is TestClassName.test_method. This is similar
+    to TextTestResult.getDescription(test), but uses different format.
+    getDescription: 'test_one (__main__.HelloTest)'
+    test_name: 'HelloTest.test_one'
+    """
+    return unittest.util.strclass(test.__class__).replace(
+        "__main__.", "") + "." + test._testMethodName  # pylint: disable=W0212
 
 class SummaryTestResult(unittest.TextTestResult):
     """A small extension of TextTestResult that also collects a map of test statuses.
@@ -28,23 +38,11 @@ class SummaryTestResult(unittest.TextTestResult):
         self.dots = verbosity == 1
         self.descriptions = descriptions
 
-    def testName(self, test):
-        """A helper function to format the test as a human-readable string.
-
-        The format is TestClassName.test_method. This is similar
-        to TextTestResult.getDescription(test), but uses different format.
-        getDescription: 'test_one (__main__.HelloTest)'
-        testName: 'HelloTest.test_one'
-        """
-        return unittest.util.strclass(test.__class__).replace(
-            "__main__.", "") + "." + test._testMethodName
-
     def getDescription(self, test):
         doc_first_line = test.shortDescription()
         if self.descriptions and doc_first_line:
             return "\n".join((str(test), doc_first_line))
-        else:
-            return str(test)
+        return str(test)
 
     def startTest(self, test):
         super().startTest(test)
@@ -60,7 +58,7 @@ class SummaryTestResult(unittest.TextTestResult):
         elif self.dots:
             self.stream.write(".")
             self.stream.flush()
-        self.results[self.testName(test)] = True
+        self.results[test_name(test)] = True
 
     def addError(self, test, err):
         super().addError(test, err)
@@ -69,7 +67,7 @@ class SummaryTestResult(unittest.TextTestResult):
         elif self.dots:
             self.stream.write("E")
             self.stream.flush()
-        self.results[self.testName(test)] = False
+        self.results[test_name(test)] = False
 
     def addFailure(self, test, err):
         super().addFailure(test, err)
@@ -78,7 +76,7 @@ class SummaryTestResult(unittest.TextTestResult):
         elif self.dots:
             self.stream.write("F")
             self.stream.flush()
-        self.results[self.testName(test)] = False
+        self.results[test_name(test)] = False
 
     def addSkip(self, test, reason):
         super().addSkip(test, reason)
