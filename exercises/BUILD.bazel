@@ -1,0 +1,87 @@
+# TODO(salikh): Create a custom bazel build rule for declaring master notebooks
+# and deliverables produced from them.
+
+genrule(
+    name = "helloworld-en-student",
+    srcs = [
+        "helloworld-en-master.ipynb",
+    ],
+    outs = ["helloworld-en-student.ipynb"],
+    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student""",
+    tools = [
+        "//go/cmd/assign",
+    ],
+)
+
+genrule(
+    name = "helloworld-en-autograder-dir",
+    srcs = [
+        "helloworld-en-master.ipynb",
+    ],
+    outs = ["helloworld-en-autograder"],
+    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=autograder""",
+    tools = [
+        "//go/cmd/assign",
+    ],
+)
+
+genrule(
+    name = "oop-en-student",
+    srcs = [
+        "oop-en-master.ipynb",
+    ],
+    outs = ["oop-en-student.ipynb"],
+    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student""",
+    tools = [
+        "//go/cmd/assign",
+    ],
+)
+
+genrule(
+    name = "oop-en-autograder-dir",
+    srcs = [
+        "oop-en-master.ipynb",
+    ],
+    outs = ["oop-en-autograder"],
+    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=autograder""",
+    tools = [
+        "//go/cmd/assign",
+    ],
+)
+
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "helloworld-en-autograder_tar",
+    srcs = [":helloworld-en-autograder"],
+    package_dir = "autograder",
+    strip_prefix = "helloworld-en-autograder",
+)
+
+pkg_tar(
+    name = "oop-en-autograder_tar",
+    srcs = [":oop-en-autograder"],
+    package_dir = "autograder",
+    strip_prefix = "oop-en-autograder",
+)
+
+#pkg_tar(
+#    name = "nsjail_tar",
+#    srcs = [":nsjail"],
+#    package_dir = "usr/local/bin",
+#)
+
+load("@io_bazel_rules_docker//container:container.bzl", "container_push", "container_image")
+
+container_image(
+    name = "autograder_image",
+    #base = "@go_image_base//image",
+    #base = "@alpine_with_bash//image",
+    base = "@debian_testing//image",
+    tars = [
+        ":helloworld-en-autograder_tar",
+        ":oop-en-autograder_tar",
+        #":nsjail_tar"
+    ],
+    visibility = ["//visibility:public"],
+)
