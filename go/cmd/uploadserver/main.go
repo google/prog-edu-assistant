@@ -153,9 +153,13 @@ func run() error {
 		AllowedUsers:     allowedUsers,
 		AuthEndpoint:     endpoint,
 		UserinfoEndpoint: userinfoEndpoint,
-		ClientID:         os.Getenv("CLIENT_ID"),
-		ClientSecret:     os.Getenv("CLIENT_SECRET"),
-		CookieAuthKey:    os.Getenv("COOKIE_AUTH_KEY"),
+		// ClientID should be obtained from the Open ID Connect provider.
+		ClientID: os.Getenv("CLIENT_ID"),
+		// ClientSecret should be obtained from the Open ID Connect provider.
+		ClientSecret: os.Getenv("CLIENT_SECRET"),
+		// CookieAuthKey should be a random string of 16 characters.
+		CookieAuthKey: os.Getenv("COOKIE_AUTH_KEY"),
+		// CookieEncryptKey should be a random string of 16 or 32 characters.
 		CookieEncryptKey: os.Getenv("COOKIE_ENCRYPT_KEY"),
 	})
 	fmt.Printf("\n  Serving on %s\n\n", serverURL)
