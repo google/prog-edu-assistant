@@ -26,7 +26,7 @@ RUN apt-get install -y \
   && ln -s /usr/bin/pip3 /usr/bin/pip \
   && ln -sf /usr/bin/python3 /usr/bin/python
 RUN pip install --no-cache-dir \
-    six arrow scikit-learn pandas numpy scikit-image Jinja2 pygments
+    six arrow scikit-learn pandas numpy scikit-image Jinja2 pygments plotly_express
 
 # Build nsjail
 RUN git clone https://github.com/google/nsjail.git /root/nsjail \

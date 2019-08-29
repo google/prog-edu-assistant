@@ -1,0 +1,35 @@
+version: '2.4'
+services:
+  rabbitmq:
+    image: rabbitmq
+  web:
+    ports:
+      - "443:443"
+      - "80:80"
+    image: asia.gcr.io/$GCP_PROJECT/server
+    volumes:
+      # Make the SSL certs available to the server.
+      - type: bind
+        source: ./certs
+        target: /certs
+        read_only: true
+      # Use the externally mounted volume for logs.
+      - ./logs:/logs
+    entrypoint: ['/usr/local/bin/uploadserver', '-use_https', '-port', '443', '-ssl_cert_file', '/certs/fullchain1.pem', '-ssl_key_file', '/certs/privkey1.pem', '-upload_dir', '/logs', '-logtostderr', '-v', '3', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-allow_cors', '-use_openid', '-static_dir', '/static', '-http_redirect_port', '80']
+    env_file:
+      # ./secret.env should define the following variables
+      # Note 1: values should not use quotes.
+      # Note 2: keep the content of the file secret!
+      #CLIENT_ID=<an OAuth2 client ID obtained from the Open ID Connect provider>
+      #CLIENT_SECRET=<an OAuth2 client secret obtained from the Open ID Connect provider>
+      #COOKIE_AUTH_KEY=<random string of 16 characters>
+      #COOKIE_ENCRYPT_KEY=<random string of 16 or 32 characters>
+      #SERVER_URL=<the public URL of the server with port but without ending slash>
+      - secret.env
+    read_only: true
+    tmpfs: /tmp
+  worker:
+    image: asia.gcr.io/$GCP_PROJECT/worker
+    entrypoint: ['/usr/local/bin/worker', '-scratch_dir', '/tmp', '-autograder_dir', '/autograder', '-logtostderr', '-v', '5', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-python_path', '/usr/bin/python', '-disable_cleanup', '-auto_remove']
+    tmpfs: /tmp
+    read_only: true

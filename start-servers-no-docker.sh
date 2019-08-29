@@ -11,9 +11,10 @@
 #   ./start-servers.sh
 
 cd "$(dirname "$0")"
+DIR="$(pwd -P)"
 source ../venv/bin/activate
 
-set -ve
+set -ex
 
 # Start Jupyter notebook server
 pgrep jupyter &>/dev/null || jupyter notebook &
@@ -25,15 +26,20 @@ pgrep jupyter &>/dev/null || jupyter notebook &
 docker run --rm -p 5672:5672 rabbitmq &
 
 cd go
-mkdir -p ../tmp-uploads
+mkdir -p "$DIR/tmp/uploads" "$DIR/tmp/scratch"
 # Start the autograder worker
-go run cmd/worker/worker.go --autograder_dir=../tmp-autograder --logtostderr --v=3 &
+go run cmd/worker/worker.go --autograder_dir="$DIR/tmp/autograder" --logtostderr --v=5 --disable_cleanup --auto_remove --scratch_dir="$DIR/tmp/scratch" &
 
 # Stop the processes we started on Ctrl+C
 trap 'kill %3; kill %2; kill %1' SIGINT
 
+. ../docker/secret.env
+export COOKIE_AUTH_KEY COOKIE_ENCRYPT_KEY CLIENT_ID CLIENT_SECRET
+
 # Start the upload server
 go run cmd/uploadserver/main.go \
-  --logtostderr --v=3 \
-  --upload_dir=../tmp-uploads \
-  --allow_cors_origin=http://localhost:8888
+  --logtostderr --v=5 \
+  --upload_dir="$DIR/tmp/uploads" \
+  --allow_cors \
+  --use_openid \
+  --static_dir="$DIR/static"

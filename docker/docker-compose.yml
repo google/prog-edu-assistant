@@ -6,7 +6,10 @@ services:
     ports:
       - "8000:8000"
     image: server:latest
-    entrypoint: ['/usr/local/bin/uploadserver', '-upload_dir', '/tmp', '-logtostderr', '-v', '3', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-allow_cors_origin', 'http://localhost:8888', '-use_openid']
+    volumes:
+      # Use the externally mounted volume for logs.
+      - /tmp/autograder/uploads:/logs
+    entrypoint: ['/usr/local/bin/uploadserver', '-port', '8000', '-upload_dir', '/logs', '-logtostderr', '-v', '3', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-allow_cors', '-use_openid', '-openid_issuer', '', '-static_dir', '/static']
     env_file:
       # ./secret.env should define the follwing variables (note: values should not use quotes)
       #CLIENT_ID=<an OAuth2 client ID obtained from the Open ID Connect provider>
@@ -17,10 +20,13 @@ services:
     read_only: true
     tmpfs: /tmp
     #image: bazel/go/cmd/uploadserver:docker
-    #entrypoint: ['/app/go/cmd/uploadserver/docker.binary.runfiles/__main__/go/cmd/uploadserver/linux_amd64_stripped/docker.binary', '-logtostderr', '-v', '3', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-allow_cors_origin', 'http://localhost:8888/', '-upload_dir', '/tmp']
+    #entrypoint: ['/app/go/cmd/uploadserver/docker.binary.runfiles/__main__/go/cmd/uploadserver/linux_amd64_stripped/docker.binary', '-logtostderr', '-v', '3', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-allow_cors', '-upload_dir', '/tmp']
   worker:
     image: worker:latest
-    entrypoint: ['/usr/local/bin/worker', '-scratch_dir', '/tmp', '-autograder_dir', '/autograder', '-logtostderr', '-v', '5', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-python_path', '/usr/bin/python']
+    volumes:
+      # Use the externally mounted volume for scratch.
+      - /tmp/autograder/scratch:/scratch
+    entrypoint: ['/usr/local/bin/worker', '-scratch_dir', '/scratch', '-autograder_dir', '/autograder', '-logtostderr', '-v', '5', '-queue_spec', 'amqp://guest:guest@rabbitmq:5672/', '-python_path', '/usr/bin/python', '-disable_cleanup', '-auto_remove']
     tmpfs: /tmp
     read_only: true
     #image: bazel/go/cmd/worker:docker

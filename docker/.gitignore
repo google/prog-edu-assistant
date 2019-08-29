@@ -1,3 +1,4 @@
 bin
 /worker/autograder
 /*.env
+/server/static
