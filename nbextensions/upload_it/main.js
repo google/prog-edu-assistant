@@ -70,13 +70,20 @@ define([
         "Upload": {
           "class": "btn-primary",
           "click": function () {
-            const notebook = Jupyter.notebook;
+            const notebook = Jupyter.notebook.toJSON();
+            if ('cells' in notebook && notebook.cells.length > 0) {
+              // Drop the cell outputs.
+              notebook.cells = notebook.cells.map(function(cell) {
+                cell.outputs = [];
+                return cell;
+              });
+            }
+            const content = JSON.stringify(notebook, null, 2);
             const url = configuration.upload_it_server_url;
             const formdata = new FormData();
-            const content = JSON.stringify(Jupyter.notebook.toJSON(), null, 2);
             const blob = new Blob([content], { type: "application/x-ipynb+json"});
             formdata.set("notebook", blob);
-            window.console.log("Uploading ", notebook.notebook_path, " to ", url, formdata);
+            window.console.log("Uploading ", Jupyter.notebook.notebook_path, " to ", url, formdata);
             $.ajax({
               url: url,
               xhrFields: {withCredentials: true},
@@ -86,13 +93,29 @@ define([
               method: "POST",
               success: function(data, status, jqXHR) {
                 // Open the report in a new tab.
-                const reportURL = new URL(url);
-                reportURL.pathname = data;
+                let reportURL = new URL(url);
+                // Expect the report location to provided in a custom HTTP header.
+                let reportLocation = jqXHR.getResponseHeader("X-Report-Url");
+                if (reportLocation != null) {
+                  reportURL.pathname = reportLocation;
+                } else {
+                  // If header was not provided, try to parse the document
+                  // and extract the first link.
+                  window.console.log("did not receive X-Report-Url, received data ", data);
+                  const parser = new DOMParser();
+                  const htmlDoc = parser.parseFromString(data, 'text/html');
+                  const links = htmlDoc.getElementsByTagName('a');
+                  if (links.length == 0) {
+                    windows.console.error("did not find any links in the response");
+                    return;
+                  }
+                  reportURL = links[0].href;
+                }
                 window.console.log("Upload OK, opening report at ", reportURL.toString());
                 window.open(reportURL, '_blank');
               },
               error: function(jqXHR, status, err) {
-                if (err == "Unauthorized") {
+                if (jqXHR.status == 401) {
                   window.console.log("Unauthorized, attempting login");
                   const loginURL = new URL(configuration.upload_it_server_url);
                   loginURL.pathname = '/login';

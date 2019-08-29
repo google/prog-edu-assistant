@@ -36,7 +36,7 @@ After that the setup procedure is common for all platforms:
 For developing the extension, use these two commands
 in the same environment that you have Jupyter installed:
 
-    jupyter nbextension install /path/to/nbextensions/upload_it --symlink
+    jupyter nbextension install nbextensions/upload_it --symlink
     jupyter nbextension enable upload_it/main
 
 ## Student installation
@@ -44,8 +44,9 @@ in the same environment that you have Jupyter installed:
 For the student installation, use:
 
     pip install jupyter_nbextensions_configurator
-    jupyter nbextension install /path/to/nbext/upload_it
-    jupyter nbextension enable upload_it/main
+    jupyter nbextensions_configurator enable --user
+    jupyter nbextension install nbextensions/upload_it --user
+    jupyter nbextension enable upload_it/main --user
 
 If you need to change the upload URL, you can do that
 in the Nbextesion tab by clicking on the title of the extension
