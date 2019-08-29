@@ -20,11 +20,22 @@ def test_name(test):
         "__main__.", "") + "." + test._testMethodName  # pylint: disable=W0212
 
 
+def test_class_name(self, test):
+    "A helper function to report the test class name."
+    return unittest.util.strclass(test.__class__).replace(
+        "__main__.", "")
+
+
+def test_method_name(self, test):
+    "A helper function to report the test case method name."
+    return test._testMethodName
+
+
 class SummaryTestResult(unittest.TextTestResult):
     """A small extension of TextTestResult that also collects a map of test statuses.
 
-    result.results is a map from test name (string) to boolean: True(passed) or
-    False(failed or error)
+    result.results is a map from test class name (string) to the map of test
+    case name (string) to boolean: True(passed) or False(failed or error).
   """
 
     separator1 = "=" * 70
@@ -60,7 +71,11 @@ class SummaryTestResult(unittest.TextTestResult):
         elif self.dots:
             self.stream.write(".")
             self.stream.flush()
-        self.results[test_name(test)] = True
+        if test_class_name(test) not in self.results:
+            self.results[test_class_name(test)] = {}
+        self.results[test_class_name(test)][test_method_name(test)] = True
+        if 'passed' not in self.results[test_class_name(test)]:
+            self.results[test_class_name(test)]['passed'] = True
 
     def addError(self, test, err):
         super().addError(test, err)
@@ -69,7 +84,10 @@ class SummaryTestResult(unittest.TextTestResult):
         elif self.dots:
             self.stream.write("E")
             self.stream.flush()
-        self.results[test_name(test)] = False
+        if test_class_name(test) not in self.results:
+            self.results[test_class_name(test)] = {}
+        self.results[test_class_name(test)][test_method_name(test)] = False
+        self.results[test_class_name(test)]['passed'] = False
 
     def addFailure(self, test, err):
         super().addFailure(test, err)
@@ -78,7 +96,10 @@ class SummaryTestResult(unittest.TextTestResult):
         elif self.dots:
             self.stream.write("F")
             self.stream.flush()
-        self.results[test_name(test)] = False
+        if test_class_name(test) not in self.results:
+            self.results[test_class_name(test)] = {}
+        self.results[test_class_name(test)][test_method_name(test)] = False
+        self.results[test_class_name(test)]['passed'] = False
 
     def addSkip(self, test, reason):
         super().addSkip(test, reason)
