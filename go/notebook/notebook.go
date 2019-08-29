@@ -221,15 +221,15 @@ func (n *Notebook) Marshal() ([]byte, error) {
 
 // MapCells runs a function on each cell and replaces the cell with the returned values.
 // If mapFunc returns error, the function terminates the iteration and returns the error.
-func (n *Notebook) MapCells(mapFunc func(c *Cell) (*Cell, error)) (*Notebook, error) {
+func (n *Notebook) MapCells(mapFunc func(c *Cell) ([]*Cell, error)) (*Notebook, error) {
 	var out []*Cell
 	for _, cell := range n.Cells {
 		ncell, err := mapFunc(cell)
 		if err != nil {
 			return nil, err
 		}
-		if ncell != nil {
-			out = append(out, ncell)
+		if len(ncell) > 0 {
+			out = append(out, ncell...)
 		}
 	}
 	return &Notebook{
@@ -246,12 +246,15 @@ var (
 	assignmentMetadataRegex     = regexp.MustCompile("(?m)^[ \t]*# ASSIGNMENT METADATA")
 	exerciseMetadataRegex       = regexp.MustCompile("(?m)^[ \t]*# EXERCISE METADATA")
 	tripleBacktickedRegex       = regexp.MustCompile("(?ms)^```([^`]|`[^`]|``[^`])*^```")
-	testMarkerRegex             = regexp.MustCompile("(?ms)^[ \t]*# TEST[\n]*")
+	testMarkerRegex             = regexp.MustCompile("(?ms)^[ \t]*# TEST[^\n]*[\n]*")
+	studentTestRegex            = regexp.MustCompile("(?ms)^[ \t]*#? ?%%studenttest(?:[ \t]+([a-zA-Z][a-zA-Z0-9_]*))[ \t]*[\n]*")
+	inlineTestRegex             = regexp.MustCompile("(?ms)^[ \t]*#? ?%%inlinetest(?:[ \t]+([a-zA-Z][a-zA-Z0-9_]*))[ \t]*[\n]*")
+	inlineOrStudentTestRegex    = regexp.MustCompile("(?ms)^[ \t]*#? ?%%(?:inline|student)test(?:[ \t]+([a-zA-Z][a-zA-Z0-9_]*))[ \t]*[\n]*")
 	solutionMagicRegex          = regexp.MustCompile("^[ \t]*%%solution[^\n]*\n")
 	solutionBeginRegex          = regexp.MustCompile("(?m)^([ \t]*)# BEGIN SOLUTION *\n")
 	solutionEndRegex            = regexp.MustCompile("(?m)^[ \t]*# END SOLUTION *")
-	promptBeginRegex            = regexp.MustCompile("(?m)^[ \t]*\"\"\" # BEGIN PROMPT *\n")
-	promptEndRegex              = regexp.MustCompile("\n[ \t]*\"\"\" # END PROMPT *\n")
+	promptBeginRegex            = regexp.MustCompile("(?m)^[ \t]*\"\"\" # BEGIN PROMPT *\n|^[ \t]*# BEGIN PROMPT *\n")
+	promptEndRegex              = regexp.MustCompile("(?m)\n[ \t]*\"\"\" # END PROMPT *\n|\n[ \t]*# END PROMPT *\n")
 	unittestBeginRegex          = regexp.MustCompile("(?m)^[ \t]*# BEGIN UNITTEST *\n")
 	unittestEndRegex            = regexp.MustCompile("(?m)^[ \t]*# END UNITTEST *")
 	autotestMarkerRegex         = regexp.MustCompile("%autotest|autotest\\(")
@@ -326,6 +329,136 @@ func extractMetadata(re *regexp.Regexp, source string) (metadata map[string]inte
 	return
 }
 
+// CleanForStudent takes a code cell and produces a clean student version,
+// i.e. it removes the # TEST markers, replaces %%solution with a placeholder,
+// drops the unit tests etc. If the cell needs to be dropped, this function
+// returns nil.
+func CleanForStudent(cell *Cell, assignmentMetadata, exerciseMetadata map[string]interface{}) (*Cell, error) {
+	if cell.Type == "markdown" {
+		if masterOnlyMarkerRegex.MatchString(cell.Source) {
+			// Skip # MASTER ONLY
+			return nil, nil
+		}
+		if hasMetadata(assignmentMetadataRegex, cell.Source) {
+			_, source, err := extractMetadata(assignmentMetadataRegex, cell.Source)
+			if err != nil {
+				return nil, err
+			}
+			// Replace the rewritten cell.
+			cell = &Cell{
+				Type:   cell.Type,
+				Source: source,
+			}
+		}
+		if hasMetadata(exerciseMetadataRegex, cell.Source) {
+			_, source, err := extractMetadata(exerciseMetadataRegex, cell.Source)
+			if err != nil {
+				return nil, err
+			}
+			// Replace the rewritten cell.
+			cell = &Cell{
+				Type:   cell.Type,
+				Source: source,
+			}
+		}
+		// Pass through.
+		return cell, nil
+	}
+	if cell.Type != "code" {
+		// No need to do anything with non-code cells.
+		return cell, nil
+	}
+	source := cell.Source
+	if m := testMarkerRegex.FindStringIndex(source); m != nil {
+		// Remove the # TEST marker.
+		source = source[:m[0]] + source[m[1]:]
+	}
+	if m := studentTestRegex.FindStringIndex(source); m != nil {
+		// Remove the %%studenttest  marker.
+		source = source[:m[0]] + source[m[1]:]
+	}
+	if m := inlineTestRegex.FindStringIndex(source); m != nil {
+		// Skip the %%inline test cell.
+		return nil, nil
+	}
+	if m := solutionMagicRegex.FindStringIndex(source); m != nil {
+		// Strip the line with %%solution magic.
+		source = source[m[1]:]
+		// Extract the prompt, if any.
+		prompt := ""
+		if mbeg := promptBeginRegex.FindStringIndex(source); mbeg != nil {
+			mend := promptEndRegex.FindStringIndex(source)
+			if mend == nil {
+				return nil, fmt.Errorf("BEGIN PROMPT has no matching END PROMPT")
+			}
+			if mend[1] < mbeg[0] {
+				return nil, fmt.Errorf("END PROMPT is before BEGIN  PROMPT")
+			}
+			prompt = source[mbeg[1]:mend[0]]
+			glog.V(3).Infof("prompt = %q", prompt)
+			source = strings.Join([]string{source[:mbeg[0]], source[mend[1]:]}, "")
+			glog.V(3).Infof("stripped source = %q", source)
+		}
+		// Remove the solution.
+		mbeg := solutionBeginRegex.FindAllStringSubmatchIndex(source, -1)
+		if mbeg == nil {
+			// No BEGIN/END SOLUTION markers. Just return "..."
+			return &Cell{
+				Type:     "code",
+				Metadata: exerciseMetadata,
+				Source:   "...",
+			}, nil
+		}
+		// Match BEGIN SOLUTION to END SOLUTION.
+		mend := solutionEndRegex.FindAllStringIndex(source, -1)
+		if len(mbeg) != len(mend) {
+			return nil, fmt.Errorf("cell has mismatched number of BEGIN SOLUTION and END SOLUTION, %d != %d", len(mbeg), len(mend))
+		}
+		var outputs []string
+		for i, m := range mbeg {
+			if i == 0 {
+				outputs = append(outputs, source[0:m[0]])
+			}
+			// TODO(salikh): Fix indentation and add more heuristics.
+			if prompt == "" {
+				indent := source[m[2]:m[3]]
+				prompt = indent + "..."
+			}
+			outputs = append(outputs, prompt)
+			glog.V(3).Infof("prompt: %q", prompt)
+			if i < len(mbeg)-1 {
+				outputs = append(outputs, source[mend[i][1]:mbeg[i+1][0]])
+			} else {
+				outputs = append(outputs, source[mend[i][1]:])
+				glog.V(3).Infof("last part: %q", source[mend[i][1]:])
+			}
+		}
+		return &Cell{
+			Type:     "code",
+			Metadata: exerciseMetadata,
+			Source:   strings.Join(outputs, ""),
+		}, nil
+	}
+	// Skip # BEGIN UNITTEST, %%submission, %%solution, %autotest and # MASTER ONLY cells.
+	if unittestBeginRegex.MatchString(source) ||
+		autotestMarkerRegex.MatchString(source) ||
+		submissionMarkerRegex.MatchString(source) ||
+		templateOrReportMarkerRegex.MatchString(source) ||
+		masterOnlyMarkerRegex.MatchString(source) {
+		// Skip the cell.
+		return nil, nil
+	}
+	// Source may have been modified.
+	return &Cell{
+		Type:   "code",
+		Source: source,
+	}, nil
+	return &Cell{
+		Type:   cell.Type,
+		Source: source,
+	}, nil
+}
+
 // ToStudent converts a master notebook into the student notebook.
 func (n *Notebook) ToStudent() (*Notebook, error) {
 	// Assignment metadata is global for the notebook.
@@ -333,7 +466,7 @@ func (n *Notebook) ToStudent() (*Notebook, error) {
 	// Exercise metadata only applies to the next code block,
 	// and is nil otherwise.
 	var exerciseMetadata map[string]interface{}
-	transformed, err := n.MapCells(func(cell *Cell) (*Cell, error) {
+	transformed, err := n.MapCells(func(cell *Cell) ([]*Cell, error) {
 		source := cell.Source
 		if cell.Type == "markdown" {
 			var err error
@@ -363,67 +496,26 @@ func (n *Notebook) ToStudent() (*Notebook, error) {
 			}
 		}
 		if cell.Type != "code" {
-			return &Cell{Type: cell.Type, Source: source}, nil
-		}
-		prompt := ""
-		if mbeg := promptBeginRegex.FindStringIndex(source); mbeg != nil {
-			mend := promptEndRegex.FindStringIndex(source)
-			if mend == nil {
-				return nil, fmt.Errorf("BEGIN PROMPT has no matching END PROMPT")
-			}
-			if mend[1] < mbeg[0] {
-				return nil, fmt.Errorf("END PROMPT is before BEGIN  PROMPT")
-			}
-			prompt = source[mbeg[1]:mend[0]]
-			glog.V(3).Infof("prompt = %q", prompt)
-			source = strings.Join([]string{source[:mbeg[0]], source[mend[1]:]}, "")
-			glog.V(3).Infof("stripped source = %q", source)
+			return []*Cell{&Cell{Type: cell.Type, Source: source}}, nil
 		}
 		if m := testMarkerRegex.FindStringIndex(source); m != nil {
 			// Remove the # TEST marker.
 			source = source[:m[0]] + source[m[1]:]
 		}
+		if m := studentTestRegex.FindStringIndex(source); m != nil {
+			// Remove the %%studenttest marker.
+			source = source[:m[0]] + source[m[1]:]
+		}
+		if m := inlineTestRegex.FindStringIndex(source); m != nil {
+			// Skip the %%inline test cell.
+			return nil, nil
+		}
 		if m := solutionMagicRegex.FindStringIndex(source); m != nil {
-			// Strip the line with %%solution magic.
-			source = source[m[1]:]
-			mbeg := solutionBeginRegex.FindAllStringSubmatchIndex(source, -1)
-			if mbeg == nil {
-				// No BEGIN/END SOLUTION markers. Just return "..."
-				return &Cell{
-					Type:     "code",
-					Metadata: exerciseMetadata,
-					Source:   "...",
-				}, nil
+			clean, err := CleanForStudent(cell, assignmentMetadata, exerciseMetadata)
+			if err != nil {
+				return nil, err
 			}
-			// Match BEGIN SOLUTION to END SOLUTION.
-			mend := solutionEndRegex.FindAllStringIndex(source, -1)
-			if len(mbeg) != len(mend) {
-				return nil, fmt.Errorf("cell has mismatched number of BEGIN SOLUTION and END SOLUTION, %d != %d", len(mbeg), len(mend))
-			}
-			var outputs []string
-			for i, m := range mbeg {
-				if i == 0 {
-					outputs = append(outputs, source[0:m[0]])
-				}
-				// TODO(salikh): Fix indentation and add more heuristics.
-				if prompt == "" {
-					indent := source[m[2]:m[3]]
-					prompt = indent + "..."
-				}
-				outputs = append(outputs, prompt)
-				glog.V(3).Infof("prompt: %q", prompt)
-				if i < len(mbeg)-1 {
-					outputs = append(outputs, source[mend[i][1]:mbeg[i+1][0]])
-				} else {
-					outputs = append(outputs, source[mend[i][1]:])
-					glog.V(3).Infof("last part: %q", source[mend[i][1]:])
-				}
-			}
-			return &Cell{
-				Type:     "code",
-				Metadata: exerciseMetadata,
-				Source:   strings.Join(outputs, ""),
-			}, nil
+			return []*Cell{clean}, nil
 		}
 		// Skip # BEGIN UNITTEST, %%submission, %%solution, %autotest and # MASTER ONLY cells.
 		if unittestBeginRegex.MatchString(source) ||
@@ -435,10 +527,10 @@ func (n *Notebook) ToStudent() (*Notebook, error) {
 			return nil, nil
 		}
 		// Source may have been modified.
-		return &Cell{
+		return []*Cell{&Cell{
 			Type:   "code",
 			Source: source,
-		}, nil
+		}}, nil
 	})
 	if err != nil {
 		return nil, err
@@ -481,7 +573,12 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 	// Exercise ID is state that applies to subsequent unittest cells.
 	var exerciseID string
 	var exerciseMetadata map[string]interface{}
-	transformed, err := n.MapCells(func(cell *Cell) (*Cell, error) {
+	// Context cells are the code cells before the start of the first exercise,
+	// and code cells from the beginning of the exercise, excluding the solution cell,
+	// but including the student test cells.
+	var globalContext []*Cell
+	var exerciseContext []*Cell
+	transformed, err := n.MapCells(func(cell *Cell) ([]*Cell, error) {
 		source := cell.Source
 		if cell.Type == "markdown" {
 			var err error
@@ -515,16 +612,49 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 						return nil, fmt.Errorf("exercise_id is not a string, but %s", reflect.TypeOf(v))
 					}
 					exerciseID = id
-					_ = exerciseID
 				}
 				glog.V(3).Infof("parsed metadata: %s", exerciseMetadata)
+				// Reset the exercise context.
+				exerciseContext = nil
 			}
 		}
 		if cell.Type != "code" {
 			// We do not need to emit non-code cells.
 			return nil, nil
 		}
-		if unittestBeginRegex.MatchString(source) {
+		if m := inlineTestRegex.FindStringSubmatchIndex(source); m != nil {
+			// Extract the inline test name.
+			name := source[m[2]:m[3]]
+			// Peel off the magic string.
+			source = source[m[1]:]
+			var parts []string
+			// Create an inline test.
+			for _, c := range globalContext {
+				// Create a clean student version of a code cell.
+				clean, err := CleanForStudent(c, assignmentMetadata, exerciseMetadata)
+				if err != nil {
+					return nil, err
+				}
+				if clean != nil {
+					// Accumulate code.
+					parts = append(parts, clean.Source)
+				}
+			}
+			return []*Cell{
+				// Store the context and the inline test itself into separate files,
+				// which will be used by the autograder to synthesize a complete inline test.
+				&Cell{
+					Type:     "code",
+					Metadata: cloneMetadata(exerciseMetadata, "filename", name+"_context.py", "assignment_id", assignmentID),
+					Source:   strings.Join(parts, "\n") + "\n",
+				},
+				&Cell{
+					Type:     "code",
+					Metadata: cloneMetadata(exerciseMetadata, "filename", name+"_inline.py", "assignment_id", assignmentID),
+					Source:   source + "\n",
+				},
+			}, nil
+		} else if unittestBeginRegex.MatchString(source) {
 			text, err := cutText(unittestBeginRegex, unittestEndRegex, source)
 			if err != nil {
 				return nil, err
@@ -544,11 +674,43 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 			text = strings.Join(imports, "") + text
 			glog.V(3).Infof("metadata: %v, exercise_id: %q", exerciseMetadata, exerciseID)
 			glog.V(3).Infof("parsed unit test: %s\n", text)
-			return &Cell{
+			return []*Cell{&Cell{
 				Type:     "code",
 				Metadata: cloneMetadata(exerciseMetadata, "filename", filename, "assignment_id", assignmentID),
 				Source:   text,
+			}}, nil
+		} else if m := solutionMagicRegex.FindStringIndex(source); m != nil {
+			clean, err := CleanForStudent(cell, assignmentMetadata, exerciseMetadata)
+			if err != nil {
+				return nil, err
+			}
+			// Store the untouched source cell value.
+			return []*Cell{
+				// empty_source.py is an easy way to access empty submission content
+				// from python code by referencing empty_source.source.
+				&Cell{
+					Type:     "code",
+					Metadata: cloneMetadata(exerciseMetadata, "filename", "empty_source.py", "assignment_id", assignmentID),
+					Source:   `source = """` + strings.Replace(clean.Source, `"""`, `\"\"\"`, -1) + `"""`,
+				},
+				// empty_submission.py is a plain file containing the empty submission
+				// content as is. This is easier to read from Go server.
+				&Cell{
+					Type:     "code",
+					Metadata: cloneMetadata(exerciseMetadata, "filename", "empty_submission.py", "assignment_id", assignmentID),
+					Source:   clean.Source,
+				},
 			}, nil
+		} else {
+			// For every non-solution and non-inline test code cell, add it to global
+			// or exercise context (for inline tests).
+			if exerciseID == "" {
+				// Before the first exercise, append to global context.
+				globalContext = append(globalContext, cell)
+			} else {
+				// After an exercise ID is set, append to the exercise context.
+				exerciseContext = append(exerciseContext, cell)
+			}
 		}
 		// Extract the reporter into a script. The reporter script takes the JSON on the standard input,
 		// expecting 'results' field to contain an outcome dictionary, and 'logs' field to contain the
@@ -559,29 +721,29 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 			filename := name + ".py"
 			// Cut the magic string.
 			source = source[m[1]:]
-			return &Cell{
+			return []*Cell{&Cell{
 				Type:     "code",
 				Metadata: cloneMetadata(exerciseMetadata, "filename", filename, "assignment_id", assignmentID),
 				Source: `
-from jinja2 import Template
+import jinja2
 import json
 import sys
 import submission_source
-from pygments import highlight
-from pygments.lexers import PythonLexer
-from pygments.formatters import HtmlFormatter
+import pygments
+from pygments import lexers
+from pygments import formatters
 
 template = """` + source + `"""
 
 if __name__ == '__main__':
   input = sys.stdin.read()
   data = json.loads(input)
-  highlighted_source = highlight(submission_source.source, PythonLexer(),
-                                 HtmlFormatter())
-  tmpl = Template(template)
-  sys.stdout.write(tmpl.render(results=data['results'], source=highlighted_source, logs=data['logs']))
+  source = submission_source.source
+  formatted_source = pygments.highlight(source, lexers.PythonLexer(), formatters.HtmlFormatter())
+  tmpl = jinja2.Template(template)
+  sys.stdout.write(tmpl.render(results=data['results'], formatted_source=formatted_source, logs=data['logs']))
 `,
-			}, nil
+			}}, nil
 		}
 		// Do not emit other code cells.
 		return nil, nil

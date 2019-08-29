@@ -138,6 +138,16 @@ x = 1
 			input: []string{"result, log = %autotest HelloTest\nx = 1"},
 			want:  []string{},
 		},
+		{
+			name:  "Studenttest1",
+			input: []string{"%%studenttest name\naaa\nbbb"},
+			want:  []string{"aaa\nbbb"},
+		},
+		{
+			name:  "Inlinetest1",
+			input: []string{"%%inlinetest name\naaa\nbbb"},
+			want:  []string{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -229,7 +239,7 @@ class MyTest(unittest.TestCase):
 # BEGIN UNITTEST
 import unittest
 
-#  import   submission  
+#  import   submission
 
 
 class MyTest(unittest.TestCase):
@@ -240,13 +250,23 @@ class MyTest(unittest.TestCase):
 			want: []string{`import submission
 import unittest
 
-#  import   submission  
+#  import   submission
 
 
 class MyTest(unittest.TestCase):
 	def test1(self):
 		pass
 `},
+		},
+		{
+			name:  "Inlinetest1",
+			input: []string{"context1", "context2", "%%inlinetest A\ninline1\ninline2"},
+			want:  []string{"context1\ncontext2\n", "inline1\ninline2\n"},
+		},
+		{
+			name:  "Studenttest1",
+			input: []string{"context1", "context2", "%%studenttest A\ninline1\ninline2"},
+			want:  []string{},
 		},
 	}
 	for _, tt := range tests {
