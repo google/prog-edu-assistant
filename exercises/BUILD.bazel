@@ -1,49 +1,50 @@
-# TODO(salikh): Create a custom bazel build rule for declaring master notebooks
-# and deliverables produced from them.
+load("//exercises:defs.bzl", "assignment_notebook")
 
-genrule(
-    name = "helloworld-en-student",
-    srcs = [
-        "helloworld-en-master.ipynb",
-    ],
-    outs = ["helloworld-en-student.ipynb"],
-    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student""",
-    tools = [
-        "//go/cmd/assign",
-    ],
+assignment_notebook(
+    name = "dataframe-pre1-ja",
+    srcs = ["dataframe-pre1-master.ipynb"],
+    language = "ja",
 )
 
-genrule(
-    name = "helloworld-en-autograder-dir",
-    srcs = [
-        "helloworld-en-master.ipynb",
-    ],
-    outs = ["helloworld-en-autograder"],
-    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=autograder""",
-    tools = [
-        "//go/cmd/assign",
-    ],
+assignment_notebook(
+    name = "dataframe-pre2-ja",
+    srcs = ["dataframe-pre2-master.ipynb"],
+    language = "ja",
 )
 
-genrule(
-    name = "oop-en-student",
-    srcs = [
-        "oop-en-master.ipynb",
-    ],
-    outs = ["oop-en-student.ipynb"],
-    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student""",
-    tools = [
-        "//go/cmd/assign",
-    ],
+assignment_notebook(
+    name = "dataframe-pre3-ja",
+    srcs = ["dataframe-pre3-master.ipynb"],
+    language = "ja",
 )
 
+assignment_notebook(
+    name = "helloworld-en",
+    srcs = ["helloworld-en-master.ipynb"],
+)
+
+assignment_notebook(
+    name = "oop-en",
+    srcs = ["oop-en-master.ipynb"],
+)
+
+assignment_notebook(
+    name = "functional-ja",
+    srcs = ["functional-master.ipynb"],
+    language = "ja",
+)
+
+# TODO(salikh): Support multiple target languages directly
+# in the assignment_notebook rule.
+
+# This generates the English version of FP student notebook.
 genrule(
-    name = "oop-en-autograder-dir",
+    name = "functional-en-student",
     srcs = [
-        "oop-en-master.ipynb",
+        "functional-master.ipynb",
     ],
-    outs = ["oop-en-autograder"],
-    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=autograder""",
+    outs = ["functional-en-student.ipynb"],
+    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student --language=en""",
     tools = [
         "//go/cmd/assign",
     ],
@@ -53,16 +54,120 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "helloworld-en-autograder_tar",
-    srcs = [":helloworld-en-autograder"],
+    srcs = [":helloworld-en_autograder"],
+    mode = "644",
     package_dir = "autograder",
     strip_prefix = "helloworld-en-autograder",
 )
 
 pkg_tar(
+    name = "functional-ja-autograder_tar",
+    srcs = [":functional-ja_autograder"],
+    mode = "644",
+    package_dir = "autograder",
+    strip_prefix = "functional-ja-autograder",
+)
+
+pkg_tar(
     name = "oop-en-autograder_tar",
-    srcs = [":oop-en-autograder"],
+    srcs = [":oop-en_autograder"],
+    mode = "644",
     package_dir = "autograder",
     strip_prefix = "oop-en-autograder",
+)
+
+filegroup(
+    name = "data_dir",
+    srcs = glob(["data/*"]),
+)
+
+pkg_tar(
+    name = "dataframe-pre1-ja-autograder_tar",
+    srcs = [
+        ":data_dir",
+        ":dataframe-pre1-ja_autograder",
+    ],
+    mode = "644",
+    package_dir = "autograder",
+    remap_paths = {
+        "exercises": "DataFrame1/CreateDataFrameFromText",
+    },
+    strip_prefix = "dataframe-pre1-ja-autograder",
+)
+
+pkg_tar(
+    name = "dataframe-pre2-ja-autograder_tar",
+    srcs = [
+        ":data_dir",
+        ":dataframe-pre2-ja_autograder",
+    ],
+    mode = "644",
+    package_dir = "autograder",
+    remap_paths = {
+        "exercises": "DataFrame2/VisualizeDataset",
+    },
+    strip_prefix = "dataframe-pre2-ja-autograder",
+)
+
+pkg_tar(
+    name = "dataframe-pre3-ja-autograder_tar",
+    srcs = [
+        ":data_dir",
+        ":dataframe-pre3-ja_autograder",
+    ],
+    mode = "644",
+    package_dir = "autograder",
+    remap_paths = {
+        "exercises": "DataFrame3/DataManipulation",
+    },
+    strip_prefix = "dataframe-pre3-ja-autograder",
+)
+
+pkg_tar(
+    name = "autograder_tar",
+    mode = "644",
+    deps = [
+        ":dataframe-pre1-ja-autograder_tar",
+        ":dataframe-pre2-ja-autograder_tar",
+        ":dataframe-pre3-ja-autograder_tar",
+        ":functional-ja-autograder_tar",
+        ":helloworld-en-autograder_tar",
+        ":oop-en-autograder_tar",
+    ],
+)
+
+pkg_tar(
+    name = "tmp-autograder_tar",
+    mode = "644",
+    package_dir = "tmp",
+    deps = [
+        ":autograder_tar",
+    ],
+)
+
+pkg_tar(
+    name = "student_notebooks_tar",
+    srcs = [
+        ":helloworld-en_student",
+        ":functional-ja_student",
+        ":functional-en-student",
+        ":oop-en_student",
+        ":dataframe-pre1-ja_student",
+        ":dataframe-pre2-ja_student",
+        ":dataframe-pre3-ja_student",
+    ] + glob(["data/*"]),
+    mode = "644",
+    strip_prefix = ".",  # This is to prevent directory flattening.
+)
+
+pkg_tar(
+    name = "tmp-student_notebooks_tar",
+    mode = "644",
+    package_dir = "tmp/student",
+    strip_prefix = ".",  # This is to prevent directory flattening.
+    deps = [
+        ":student_notebooks_tar",
+    ],
 )
 
 #pkg_tar(
@@ -79,8 +184,7 @@ container_image(
     #base = "@alpine_with_bash//image",
     base = "@debian_testing//image",
     tars = [
-        ":helloworld-en-autograder_tar",
-        ":oop-en-autograder_tar",
+        ":autograder_tar",
         #":nsjail_tar"
     ],
     visibility = ["//visibility:public"],

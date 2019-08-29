@@ -22,9 +22,9 @@ Install virtualenv. The command may differ depending on the system.
 
 After that the setup procedure is common
 
-    virtualenv -p python3 ./venv  # Create the virtual Python environment in ./venv/
-    source ./venv/bin/activate    # Activate it.
-    pip install jupyter           # Install Jupyter (inside of ./venv).
+    virtualenv -p python3 ../venv  # Create the virtual Python environment in ./venv/
+    source ../venv/bin/activate    # Activate it.
+    pip install jupyter            # Install Jupyter (inside of ./venv).
 
 To start the Jupyter notebook run command
 
