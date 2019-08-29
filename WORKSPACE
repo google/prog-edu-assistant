@@ -13,16 +13,20 @@
 # limitations under the License.
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 http_archive(
     name = "io_bazel_rules_go",
+    sha256 = "f04d2373bcaf8aa09bccb08a98a57e721306c8f6043a2a0ee610fd6853dcde3d",
     urls = [
         "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/0.18.6/rules_go-0.18.6.tar.gz",
         "https://github.com/bazelbuild/rules_go/releases/download/0.18.6/rules_go-0.18.6.tar.gz",
     ],
-    sha256 = "f04d2373bcaf8aa09bccb08a98a57e721306c8f6043a2a0ee610fd6853dcde3d",
 )
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
+
 go_rules_dependencies()
+
 go_register_toolchains()
 
 http_archive(
@@ -30,7 +34,9 @@ http_archive(
     sha256 = "3c681998538231a2d24d0c07ed5a7658cb72bfb5fd4bf9911157c0e9ac6a2687",
     urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz"],
 )
+
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
+
 gazelle_dependencies()
 
 go_repository(
@@ -38,6 +44,14 @@ go_repository(
     commit = "1744e2970ca51c86172c8190fadad617561ed6e7",  # v1.0.0
     importpath = "github.com/sergi/go-diff",
     remote = "https://github.com/sergi/go-diff",
+    vcs = "git",
+)
+
+go_repository(
+    name = "com_github_andreyvit_diff",
+    commit = "c7f18ee00883bfd3b00e0a2bf7607827e0148ad4",  # HEAD from 2017-04-06
+    importpath = "github.com/andreyvit/diff",
+    remote = "https://github.com/andreyvit/diff",
     vcs = "git",
 )
 
@@ -95,6 +109,25 @@ go_repository(
     importpath = "github.com/gorilla/context",
 )
 
+# Dependency of github.com/sourcegraph/syntaxhighlight.
+go_repository(
+    name = "com_github_sourcegraph_annotate",
+    commit = "f4cad6c6324d3f584e1743d8b3e0e017a5f3a636",
+    importpath = "github.com/sourcegraph/annotate",
+    remote = "https://github.com/sourcegraph/annotate",
+    vcs = "git",
+)
+
+# github.com/sourcegraph/syntaxhighlight is used by inline tests to highlight
+# python source code submission.
+go_repository(
+    name = "com_github_sourcegraph_syntaxhighlight",
+    commit = "bd320f5d308e1a3c4314c678d8227a0d72574ae7",
+    importpath = "github.com/sourcegraph/syntaxhighlight",
+    remote = "https://github.com/sourcegraph/syntaxhighlight",
+    vcs = "git",
+)
+
 http_archive(
     name = "io_bazel_rules_docker",
     sha256 = "5dcd5820604c5b7e7c5f7db6e2b0cd1cf59eb0a30a0076fe3a4b86198365479a",
@@ -106,13 +139,13 @@ load(
     "@io_bazel_rules_docker//repositories:repositories.bzl",
     container_repositories = "repositories",
 )
-
 load(
     "@io_bazel_rules_docker//go:image.bzl",
     _go_image_repos = "repositories",
 )
 
 container_repositories()
+
 _go_image_repos()
 
 load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
