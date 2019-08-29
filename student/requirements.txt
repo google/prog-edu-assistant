@@ -1,0 +1,5 @@
+numpy
+pandas
+plotly_express
+jupyter
+jupyter_nbextensions_configurator

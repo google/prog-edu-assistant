@@ -1,0 +1,3 @@
+jupyter nbextensions_configurator enable --user
+jupyter nbextension install nbextensions/upload_it --user
+jupyter nbextension enable upload_it/main --user
