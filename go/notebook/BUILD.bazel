@@ -17,6 +17,7 @@ go_test(
     srcs = ["notebook_test.go"],
     embed = [":notebook"],
     deps = [
+        "@com_github_andreyvit_diff//:go_default_library",
         "@com_github_sergi_go_diff//diffmatchpatch:go_default_library",
     ],
 )

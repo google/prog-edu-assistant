@@ -603,8 +603,32 @@ func cloneMetadata(metadata map[string]interface{}, extras ...interface{}) map[s
 var (
 	// testClassRegex detects the test cases that need to be written down into a separate file.
 	// The name of the file is derived from the name of the test class.
-	testClassRegex = regexp.MustCompile(`(?m)^[ \t]*class ([a-zA-Z_0-9]*)\(unittest\.TestCase\):`)
+	testClassRegex       = regexp.MustCompile(`(?m)^[ \t]*class ([a-zA-Z_0-9]*)\(unittest\.TestCase\):`)
+	commentedImportRegex = regexp.MustCompile(`(?m)^([ \t]*)#[ \t]*(import[ \t]+[a-zA-Z][a-zA-Z0-9_.]*)[ \t]*(\r?\n?)$`)
 )
+
+// uncommentImports takes a string with a snippet of Python source code
+// and uncomments any commented out import statements.
+func uncommentImports(source string) string {
+	mm := commentedImportRegex.FindAllStringSubmatchIndex(source, -1)
+	if len(mm) == 0 {
+		return source
+	}
+	var result []string
+	pos := 0
+	for _, m := range mm {
+		fmt.Printf("Found a commented import: %q %q %q", source[m[2]:m[3]], source[m[4]:m[5]], source[m[6]:m[7]])
+		// Append preceding block up to and including the indent.
+		result = append(result, source[pos:m[3]])
+		// Append the import statement
+		result = append(result, source[m[4]:m[5]])
+		// Append the newline.
+		result = append(result, source[m[6]:m[7]])
+		pos = m[7]
+	}
+	result = append(result, source[pos:])
+	return strings.Join(result, "")
+}
 
 // ToAutograder converts a master notebook into the intermediate format called "autograder notebook".
 // The autograder notebook is a format where each cell corresponds to one file,
@@ -672,6 +696,8 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 			name := source[m[2]:m[3]]
 			// Peel off the magic string.
 			source = source[m[1]:]
+			// Uncomment the imports to enable access to 'import submission' and 'import submission_source'.
+			source = uncommentImports(source)
 			var parts []string
 			// Create an inline test.
 			for _, c := range globalContext {

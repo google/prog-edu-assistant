@@ -1,11 +1,33 @@
 package notebook
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/andreyvit/diff"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
+
+var (
+	reBeginRed   = regexp.MustCompile(`\(~~`)
+	reEndRed     = regexp.MustCompile(`~~\)`)
+	reBeginGreen = regexp.MustCompile(`\(\+\+`)
+	reEndGreen   = regexp.MustCompile(`\+\+\)`)
+	ansiRed      = "\u001b[31m"
+	ansiGreen    = "\u001b[32m"
+	ansiReset    = "\u001b[0m"
+)
+
+func colorize(diff string) string {
+	return reEndGreen.ReplaceAllString(reBeginGreen.ReplaceAllString(
+		reEndRed.ReplaceAllString(reBeginRed.ReplaceAllString(diff, ansiRed), ansiReset),
+		ansiGreen), ansiReset) + ansiReset
+}
+
+func charDiff(want, got string) string {
+	return colorize(diff.CharacterDiff(want, got))
+}
 
 type cellRewriteTest struct {
 	name string
@@ -301,5 +323,103 @@ class MyTest(unittest.TestCase):
 				t.Errorf("Diffs:\n%s", dmp.DiffPrettyText(diffs))
 			}
 		})
+	}
+}
+
+func TestUncomment(t *testing.T) {
+	var tests = []struct {
+		source string
+		want   string
+	}{
+		{
+			source: `abc`,
+			want:   `abc`,
+		},
+		{
+			source: `import abc`,
+			want:   `import abc`,
+		},
+		{
+			source: `#import abc`,
+			want:   `import abc`,
+		},
+		{
+			source: `#import abc_cde.efg_fgh`,
+			want:   `import abc_cde.efg_fgh`,
+		},
+		{
+			source: `xyz
+#import abc`,
+			want: `xyz
+import abc`,
+		},
+		{
+			source: `#import abc
+xyz`,
+			want: `import abc
+xyz`,
+		},
+		{
+			source: `abc
+#import x
+cde`,
+			want: `abc
+import x
+cde`,
+		},
+		{
+			source: `abc
+#import x
+#import y.z
+cde`,
+			want: `abc
+import x
+import y.z
+cde`,
+		},
+		{
+			// Replacement should work with CRLF line separators as well.
+			source: " \tabc\r\n \t# import x\r\n \tcde",
+			want:   " \tabc\r\n \timport x\r\n \tcde",
+		},
+		{
+			// Replacement should work with CRLF line separators as well.
+			source: " \tabc\r\n \t# import x\r\n \tcde",
+			want:   " \tabc\r\n \timport x\r\n \tcde",
+		},
+		{
+			// Replacement should work with CRLF line separators as well.
+			source: " \tabc\r\n \t# import x\r\n\t # \timport y.z\r\n \tcde",
+			want:   " \tabc\r\n \timport x\r\n\t import y.z\r\n \tcde",
+		},
+		{
+			// Replacement should work with CRLF line separators as well.
+			source: " \tabc\r\n \t# import x\r\n \tcde",
+			want:   " \tabc\r\n \timport x\r\n \tcde",
+		},
+		{
+			// Whitespace after the comment sign should not be preserved.
+			source: `#  import abc`,
+			want:   `import abc`,
+		},
+		{
+			// Whitespace before the comment sign should be preserved.
+			source: ` #  import abc`,
+			want:   ` import abc`,
+		},
+		{
+			// Whitespace before the comment sign should be preserved.
+			source: `		#  import abc`,
+			want: `		import abc`,
+		},
+	}
+	for _, tt := range tests {
+		got := uncommentImports(tt.source)
+		if got != tt.want {
+			t.Logf("Input:\n%s", tt.source)
+			t.Logf("Want:\n%s", tt.want)
+			t.Logf("Got:\n%s", got)
+			t.Errorf("Output is not as expected, diff: %s", charDiff(tt.want, got))
+		}
 	}
 }
