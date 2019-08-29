@@ -10,8 +10,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"os"
 	"path/filepath"
@@ -39,6 +42,9 @@ var (
 		"The path to python binary.")
 	disableCleanup = flag.Bool("disable_cleanup", false,
 		"If true, autograder will not delete scratch directory on success.")
+	autoRemove = flag.Bool("auto_remove", false,
+		"If true, removes the scratch directory before creating a new one. "+
+			"This is useful together with --disable_cleanup.")
 )
 
 func main() {
@@ -63,6 +69,7 @@ func run() error {
 	ag.PythonPath = *pythonPath
 	ag.ScratchDir = *scratchDir
 	ag.DisableCleanup = *disableCleanup
+	ag.AutoRemove = *autoRemove
 	// Exponential backoff on connecting to the message queue.
 	delay := 500 * time.Millisecond
 	retryUntil := time.Now().Add(60 * time.Second)
@@ -89,17 +96,52 @@ func run() error {
 	glog.Infof("Listening on the queue %q", *autograderQueue)
 	// Enter the main work loop
 	for b := range ch {
-		glog.V(5).Infof("Received %d bytes: %s", len(b), string(b))
-		report, err := ag.Grade(b)
+		glog.Infof("Worker received %d bytes", len(b))
+		glog.V(5).Infof("Received notebook:\n%s\n--", string(b))
+		reportBytes, err := ag.Grade(b)
 		if err != nil {
-			// TODO(salikh): Add remote logging and monitoring.
+			// TODO(salikh): Add monitoring.
 			log.Println(err)
+			errId, ok := err.(*autograder.ErrorWithId)
+			if !ok {
+				continue
+			}
+			// Report the error back to the user.
+			var buf bytes.Buffer
+			err := errorTmpl.Execute(&buf, err.Error())
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			reportJSON := map[string]interface{}{
+				"submission_id": errId.SubmissionID,
+				"Report": map[string]interface{}{
+					"report": buf.String(),
+				},
+			}
+			reportBytes, err := json.MarshalIndent(reportJSON, "", "  ")
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			err = q.Post(*reportQueue, reportBytes)
+			if err != nil {
+				glog.Errorf("Error posting %d byte report to queue %q: %s",
+					len(reportBytes), *reportQueue, err)
+			}
+			continue
 		}
-		glog.V(3).Infof("Grade result %d bytes: %s", len(report), string(report))
-		err = q.Post(*reportQueue, report)
+		glog.V(3).Infof("Grade result %d bytes: %s",
+			len(reportBytes), string(reportBytes))
+		err = q.Post(*reportQueue, reportBytes)
 		if err != nil {
-			log.Println(err)
+			glog.Errorf("Error posting %d byte report to queue %q: %s", len(reportBytes), *reportQueue, err)
 		}
+		glog.V(5).Infof("Posted %d bytes to queue %q", len(reportBytes), *reportQueue)
 	}
 	return nil
 }
+
+var errorTmpl = template.Must(template.New("errortemplate").Parse(`
+<h2 style='color: red'>Checker Error</h2>
+<pre>{{.}}</pre>`))

@@ -2,6 +2,7 @@
 package queue
 
 import (
+	"github.com/golang/glog"
 	"github.com/streadway/amqp"
 )
 
@@ -102,6 +103,7 @@ func (ch *Channel) Receive(queueName string) (<-chan []byte, error) {
 	outputCh := make(chan []byte)
 	go func() {
 		for d := range deliveries {
+			glog.V(5).Infof("received %d bytes from queue %q", len(d.Body), q.Name)
 			outputCh <- d.Body
 		}
 		close(outputCh)

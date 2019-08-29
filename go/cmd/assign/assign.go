@@ -148,8 +148,14 @@ func autograderCommand() error {
 	}
 	for _, cell := range n.Cells {
 		source := cell.Source
-		filename := cell.Metadata["filename"].(string)
-		exerciseID := cell.Metadata["exercise_id"].(string)
+		filename, ok := cell.Metadata["filename"].(string)
+		if !ok {
+			return fmt.Errorf("missing or incorrect filename metadata: %v", filename)
+		}
+		exerciseID, ok := cell.Metadata["exercise_id"].(string)
+		if !ok {
+			return fmt.Errorf("missing or incorrect exercise_id metadata: %v", exerciseID)
+		}
 		dir := filepath.Join(*output, assignmentID, exerciseID)
 		err = os.MkdirAll(dir, 0775)
 		if err != nil {

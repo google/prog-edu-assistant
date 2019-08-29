@@ -9,5 +9,6 @@ go_library(
     deps = [
         "//go/notebook",
         "@com_github_golang_glog//:go_default_library",
+        "@com_github_sourcegraph_syntaxhighlight//:go_default_library",
     ],
 )

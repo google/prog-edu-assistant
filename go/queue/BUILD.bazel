@@ -7,6 +7,7 @@ go_library(
     srcs = ["queue.go"],
     importpath = "github.com/google/prog-edu-assistant/queue",
     deps = [
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_streadway_amqp//:go_default_library",
     ],
 )

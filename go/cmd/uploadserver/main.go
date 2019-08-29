@@ -21,14 +21,15 @@ import (
 )
 
 var (
-	port        = flag.Int("port", 8000, "The port to serve HTTP/S.")
-	useHTTPS    = flag.Bool("use_https", false, "If true, use HTTPS instead of HTTP.")
-	sslCertFile = flag.String("ssl_cert_file", "localhost.crt",
+	port             = flag.Int("port", 8000, "The port to serve HTTP/S.")
+	useHTTPS         = flag.Bool("use_https", false, "If true, use HTTPS instead of HTTP.")
+	httpRedirectPort = flag.Int("http_redirect_port", 0, "If non-zero, listen HTTP on the specified port and redirect to to SERVER_URL (assumed to be HTTPS)")
+	sslCertFile      = flag.String("ssl_cert_file", "localhost.crt",
 		"The path to the signed SSL server certificate.")
 	sslKeyFile = flag.String("ssl_key_file", "localhost.key",
 		"The path to the SSL server key.")
-	allowCORSOrigin = flag.String("allow_cors_origin", "",
-		"If non-empty, allow cross-origin requests from the specified domain."+
+	allowCORS = flag.Bool("allow_cors", false,
+		"If true, allow cross-origin requests from any domain."+
 			"This is currently necessary to enable uploads from Jupyter notebooks, "+
 			"but unfortunately "+
 			"it also makes the server vulnerable to XSRF attacks. Use with care.")
@@ -48,6 +49,8 @@ var (
 		"The name of the autograder queue to send work requests.")
 	reportQueue = flag.String("report_queue", "report",
 		"The name of the queue to listen for the reports.")
+	staticDir = flag.String("static_dir", "", "The directory to serve static files from. "+
+		"The files are exposed at the path /static.")
 )
 
 func main() {
@@ -60,7 +63,7 @@ func main() {
 
 func run() error {
 	endpoint := google.Endpoint
-	var userinfoEndpoint string
+	userinfoEndpoint := "https://openidconnect.googleapis.com/v1/userinfo"
 	if *openIDIssuer != "" {
 		wellKnownURL := *openIDIssuer + "/.well-known/openid-configuration"
 		resp, err := http.Get(wellKnownURL)
@@ -129,8 +132,9 @@ func run() error {
 		}
 		ch, err = q.Receive(*reportQueue)
 		if err != nil {
-			return fmt.Errorf("error receiving on queue %q: %s", *autograderQueue, err)
+			return fmt.Errorf("error receiving on queue %q: %s", *reportQueue, err)
 		}
+		glog.Infof("Listening for reports on the queue %q", *reportQueue)
 		break
 	}
 	addr := ":" + strconv.Itoa(*port)
@@ -144,7 +148,7 @@ func run() error {
 		serverURL = os.Getenv("SERVER_URL")
 	}
 	s := uploadserver.New(uploadserver.Options{
-		AllowCORSOrigin:  *allowCORSOrigin,
+		AllowCORS:        *allowCORS,
 		ServerURL:        serverURL,
 		UploadDir:        *uploadDir,
 		Channel:          q,
@@ -161,11 +165,17 @@ func run() error {
 		CookieAuthKey: os.Getenv("COOKIE_AUTH_KEY"),
 		// CookieEncryptKey should be a random string of 16 or 32 characters.
 		CookieEncryptKey: os.Getenv("COOKIE_ENCRYPT_KEY"),
+		// Use secure cookie when using HTTPS.
+		SecureCookie: *useHTTPS,
+		// HashSalt should be a random string.
+		HashSalt:         os.Getenv("HASH_SALT"),
+		StaticDir:        *staticDir,
+		HTTPRedirectPort: *httpRedirectPort,
 	})
+	go s.ListenForReports(ch)
 	fmt.Printf("\n  Serving on %s\n\n", serverURL)
 	if *useHTTPS {
 		return s.ListenAndServeTLS(addr, *sslCertFile, *sslKeyFile)
 	}
-	go s.ListenForReports(ch)
 	return s.ListenAndServe(addr)
 }

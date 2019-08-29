@@ -5,15 +5,20 @@
 package uploadserver
 
 import (
+	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/golang/glog"
@@ -30,10 +35,8 @@ type Options struct {
 	// UploadDir specifies the directory to write uploaded files to
 	// and to serve on /uploads.
 	UploadDir string
-	// AllowCORSOrigin specifies the origin allowed for cross-origin requests.
-	// This value is returned in
-	// Access-Control-Allow-Origin: HTTP header.
-	AllowCORSOrigin string
+	// AllowCORS specifies whether cross-origin requests are allowed.
+	AllowCORS bool
 	// QueueName is the name of the queue to post uploads.
 	QueueName string
 	// Channel is the interface to the message queue.
@@ -55,6 +58,15 @@ type Options struct {
 	CookieAuthKey string
 	// Set to 16, 24 or 32 random bytes.
 	CookieEncryptKey string
+	// SecureCookie specifies whether the cookie must have Secure attribute or not.
+	SecureCookie bool
+	// HashSalt should be set to a random string. It is used for hashing student
+	// ids.
+	HashSalt string
+	// StaticDir is set to the path of the directory exposed at /static URL.
+	StaticDir string
+	// HTTPRedirectPort controls the HTTP redirect to HTTPS.
+	HTTPRedirectPort int
 }
 
 // Server provides an implementation of a web server for handling student
@@ -88,7 +100,11 @@ func New(opts Options) *Server {
 		},
 		oauthState: uuid.New().String(),
 	}
-	mux.Handle("/", handleError(s.uploadForm))
+	s.cookieStore.Options = &sessions.Options{
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   s.opts.SecureCookie,
+	}
 	mux.Handle("/upload", handleError(s.handleUpload))
 	mux.Handle("/uploads/", http.StripPrefix("/uploads",
 		http.FileServer(http.Dir(s.opts.UploadDir))))
@@ -100,23 +116,52 @@ func New(opts Options) *Server {
 		mux.Handle("/logout", handleError(s.handleLogout))
 		mux.Handle("/profile", handleError(s.handleProfile))
 	}
+	if s.opts.StaticDir != "" {
+		glog.Infof("Registering static file server on /static from %s", opts.StaticDir)
+		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(opts.StaticDir))))
+	}
+	mux.Handle("/", handleError(s.uploadForm))
 	return s
 }
 
 const UserSessionName = "user_session"
 
+// hashId uses cryptographic hash (sha224) and a secret salt
+// to hash the user id (email address) into a hash.
+func (s *Server) hashId(id string) string {
+	b := sha256.Sum224([]byte(s.opts.HashSalt + id))
+	return hex.EncodeToString(b[:])
+}
+
 // ListenAndServe starts the server similarly to http.ListenAndServe.
 func (s *Server) ListenAndServe(addr string) error {
 	err := os.MkdirAll(s.opts.UploadDir, 0700)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating upload dir %q: %s", s.opts.UploadDir, err)
 	}
 	return http.ListenAndServe(addr, s.mux)
 }
 
 // ListenAndServeTLS starts a server using HTTPS.
 func (s *Server) ListenAndServeTLS(addr, certFile, keyFile string) error {
-	return http.ListenAndServeTLS(addr, certFile, keyFile, s.mux)
+	if s.opts.HTTPRedirectPort != 0 {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+			p := req.URL.Path
+			if p != "" && p[0] != '/' {
+				p = "/" + p
+			}
+			http.Redirect(w, req, s.opts.ServerURL+p, http.StatusTemporaryRedirect)
+		})
+		go http.ListenAndServe(fmt.Sprintf(":%d", s.opts.HTTPRedirectPort), mux)
+	}
+	config := &tls.Config{MinVersion: tls.VersionTLS10}
+	httpserver := &http.Server{
+		Addr:      addr,
+		TLSConfig: config,
+		Handler:   s.mux,
+	}
+	return httpserver.ListenAndServeTLS(certFile, keyFile)
 }
 
 // httpError wraps the HTTP status code and makes them usable as Go errors.
@@ -139,6 +184,16 @@ func handleError(fn func(http.ResponseWriter, *http.Request) error) http.Handler
 			glog.Errorf("%s  %s", req.URL, err.Error())
 			status, ok := err.(httpError)
 			if ok {
+				if status == http.StatusUnauthorized {
+					// Provide a convenience login link.
+					w.Header().Set("Content-Type", "text/html; charset=utf-8")
+					w.WriteHeader(int(status))
+					fmt.Fprintf(w, `<html>
+<title>Not logged in</title>
+<h3>Not logged in</h3>
+Click here to log in: <a href='/login'>Log in</a>.`)
+					return
+				}
 				http.Error(w, err.Error(), int(status))
 			} else {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -162,11 +217,6 @@ func (s *Server) handleFavIcon(w http.ResponseWriter, req *http.Request) {
 // is designed to handle the case of workers being overloaded with graing work
 // and producing reports with long delay.
 func (s *Server) handleReport(w http.ResponseWriter, req *http.Request) error {
-	if s.opts.AllowCORSOrigin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", s.opts.AllowCORSOrigin)
-		w.Header().Set("Access-Control-Allow-Methods", "POST")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-	}
 	basename := path.Base(req.URL.Path)
 	filename := filepath.Join(s.opts.UploadDir, basename+".txt")
 	glog.V(5).Infof("checking %q for existence", filename)
@@ -185,15 +235,16 @@ func (s *Server) handleReport(w http.ResponseWriter, req *http.Request) error {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		// TODO(salikh): Make timeout configurable.
-		if reloadMs > 10000 {
+		if reloadMs > 20000 {
 			// Reset for retry.
 			reloadMs = 500
 			s.reportTimestamp[basename] = time.Now()
 		}
-		if reloadMs > 5000 {
+		if reloadMs > 10000 {
 			fmt.Fprintf(w, `<title>Something weng wrong</title>
 <h2>Error</h2>
-Something went wrong, please retry your upload.
+Something went wrong, please reload this page.
+If reloading does not help, wait a minute and retry your upload.
 `)
 			return nil
 		}
@@ -221,24 +272,64 @@ function refresh(t) {
 		return err
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<title>Report for %s</title>`, basename)
-	if v, ok := data["reports"]; ok {
-		reports, ok := v.(map[string]interface{})
+	var exerciseIDs []string
+	var reports = make(map[string]string)
+	// Extract reports
+	fill := &reportFill{
+		Title: "Report for " + basename,
+	}
+	for exerciseID, x := range data {
+		m, ok := x.(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("expected reports to be map[string]interface{}, got %s", reflect.TypeOf(v))
+			continue
 		}
-		// Just concatenate all reports.
-		for exercise_id, report := range reports {
-			fmt.Fprintf(w, "<h2>%s</h2>", exercise_id)
+		if report, ok := m["report"]; ok {
 			html, ok := report.(string)
 			if !ok {
 				return fmt.Errorf("expected report to be a string, got %s", reflect.TypeOf(report))
 			}
-			fmt.Fprint(w, html)
+			reports[exerciseID] = html
+			exerciseIDs = append(exerciseIDs, exerciseID)
 		}
 	}
-	return nil
+	// Sort reports by exercise_id.
+	sort.Strings(exerciseIDs)
+	// Just concatenate all reports in order.
+	for _, exerciseID := range exerciseIDs {
+		fill.Exercises = append(fill.Exercises, exerciseFill{exerciseID, template.HTML(reports[exerciseID])})
+	}
+	if len(fill.Exercises) == 0 {
+		fill.ErrorMessage = fmt.Sprintf("No checks defined for %s", basename)
+	}
+	return reportTmpl.Execute(w, fill)
 }
+
+type exerciseFill struct {
+	ReportTitle string
+	ReportHTML  template.HTML
+}
+
+type reportFill struct {
+	Title        string
+	Exercises    []exerciseFill
+	ErrorMessage string
+}
+
+var reportTmpl = template.Must(template.New("reportTmpl").Parse(`
+<title>{{.Title}}</title>
+<link rel='stylesheet' type='text/css' href='/static/style.css'/>
+{{range .Exercises}}
+{{if .ReportTitle}}
+<h2>{{.ReportTitle}}</h2>
+{{end}}
+{{.ReportHTML}}
+{{end}}
+{{if .ErrorMessage}}
+<div class='error'>
+{{.ErrorMessage}}
+</div>
+{{end}}
+`))
 
 // handleLogin handles Open ID Connect authentication.
 func (s *Server) handleLogin(w http.ResponseWriter, req *http.Request) error {
@@ -299,7 +390,8 @@ func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error 
 		return nil
 	}
 	if len(s.opts.AllowedUsers) > 0 && !s.opts.AllowedUsers[profile.Email] {
-		delete(session.Values, "email")
+		session.Options.MaxAge = -1
+		delete(session.Values, "hash")
 		session.Save(req, w)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusForbidden)
@@ -307,7 +399,14 @@ func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error 
 			"Try a different Google account. <a href='https://mail.google.com/mail/logout'>Log out of Google</a>.", profile.Email)))
 		return nil
 	}
-	session.Values["email"] = profile.Email
+	// Restrict the cookie by 1h, HttpOnly and Secure (if configured).
+	session.Options = &sessions.Options{
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   s.opts.SecureCookie,
+	}
+	// Instead of email, we store a salted cryptographic hash (pseudonymous id).
+	session.Values["hash"] = s.hashId(profile.Email)
 	session.Save(req, w)
 	http.Redirect(w, req, "/profile", http.StatusTemporaryRedirect)
 	return nil
@@ -321,10 +420,11 @@ func (s *Server) handleProfile(w http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	email, ok := session.Values["email"]
+	hash, ok := session.Values["hash"]
 	if ok {
-		fmt.Fprintf(w, "Logged in as %s. <a href='/logout'>Log out link</a>.", email)
-		fmt.Fprintf(w, "<p><strong>You can close this window and retry upload now.</strong>")
+		fmt.Fprintf(w, "Logged in as %s. <a href='/logout'>Log out link</a>.", hash)
+		fmt.Fprintf(w, "<p>Click here to <a href='/'>upload</a> a notebook manually, or "+
+			"<strong>You can close this window and retry upload from the Jupyter notebook.</strong>")
 	} else {
 		fmt.Fprintf(w, "Logged out. <a href='/login'>Log in</a>.")
 	}
@@ -337,45 +437,55 @@ func (s *Server) handleLogout(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	delete(session.Values, "email")
+	session.Options.MaxAge = -1
+	delete(session.Values, "hash")
 	session.Save(req, w)
 	http.Redirect(w, req, "/profile", http.StatusTemporaryRedirect)
 	return nil
 }
 
 // authenticate handles the authentication. If authentication or authorization
-// was not successful, it returns an error.
-func (s *Server) authenticate(w http.ResponseWriter, req *http.Request) error {
+// was not successful, it returns an error. Normally it returns the user hash.
+func (s *Server) authenticate(w http.ResponseWriter, req *http.Request) (string, error) {
 	session, err := s.cookieStore.Get(req, UserSessionName)
 	if err != nil {
-		return err
+		session.Options.MaxAge = -1
+		return "", fmt.Errorf("cookieStore.Get returned error %s", err)
 	}
-	email, ok := session.Values["email"].(string)
-	glog.V(3).Infof("authenticate %s: email=%s", req.URL, session.Values["email"])
-	if !ok || email == "" {
-		return httpError(http.StatusUnauthorized)
+	hash, ok := session.Values["hash"].(string)
+	glog.V(3).Infof("authenticate %s: hash=%s", req.URL, session.Values["hash"])
+	if !ok || hash == "" {
+		return "", httpError(http.StatusUnauthorized)
 	}
-	if len(s.opts.AllowedUsers) > 0 && !s.opts.AllowedUsers[email] {
-		return httpError(http.StatusForbidden)
-	}
-	return nil
+	return hash, nil
 }
 
 const maxUploadSize = 1048576
 
 // handleUpload handles the upload requests via web form.
 func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
-	if s.opts.AllowCORSOrigin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", s.opts.AllowCORSOrigin)
-		w.Header().Set("Access-Control-Allow-Methods", "POST")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-	}
 	glog.Infof("%s %s", req.Method, req.URL.Path)
+	if s.opts.AllowCORS {
+		origin := "*"
+		if len(req.Header["Origin"]) > 0 {
+			origin = req.Header["Origin"][0]
+		}
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Max-Age", "1800")
+		// X-Report-Url header is used to report back the link to the report.
+		w.Header().Set("Access-Control-Expose-Headers", "X-Report-Url")
+		if req.Method == "OPTIONS" {
+			w.Header().Set("Access-Control-Allow-Methods", "POST")
+		}
+	}
 	if req.Method == "OPTIONS" {
 		return nil
 	}
+	userHash := "unknown"
 	if s.opts.UseOpenID {
-		err := s.authenticate(w, req)
+		var err error
+		userHash, err = s.authenticate(w, req)
 		if err != nil {
 			return err
 		}
@@ -405,7 +515,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("error writing uploaded file: %s", err)
 	}
-	// Store submission ID inside the metadata.
+	// Store user hash and submission ID inside the metadata.
 	data := make(map[string]interface{})
 	err = json.Unmarshal(b, &data)
 	if err != nil {
@@ -421,6 +531,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 		data["metadata"] = metadata
 	}
 	metadata["submission_id"] = submissionID
+	metadata["user_hash"] = userHash
 	b, err = json.Marshal(data)
 	if err != nil {
 		return err
@@ -430,26 +541,36 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "text/plain")
-	if s.opts.AllowCORSOrigin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", s.opts.AllowCORSOrigin)
-		w.Header().Set("Access-Control-Allow-Methods", "POST")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-	}
-	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	// TODO(salikh): check if submissionID needs any escaping. Normally it is a UUID.
+	reportURL := "/report/" + submissionID
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// X-Report-Url header is used to report back the link to the report.
+	w.Header().Set("X-Report-Url", reportURL)
 	glog.V(5).Infof("Uploaded: %s", string(b))
-	fmt.Fprintf(w, "/report/"+submissionID)
+	err = uploadResultTmpl.Execute(w, reportURL)
+	if err != nil {
+		glog.Error(err)
+	}
 	return nil
 }
+
+var uploadResultTmpl = template.Must(template.New("uploadResultTmpl").Parse(`
+<html>
+<title>Upload completed</title>
+<link rel='stylesheet' type='text/css' href='/static/style.css'/>
+<h2>Upload succeeded</h2>
+Click here for the <a href='{{.}}'>Report</a>.
+`))
 
 func (s *Server) scheduleCheck(content []byte) error {
 	return s.opts.Channel.Post(s.opts.QueueName, content)
 }
 
 func (s *Server) ListenForReports(ch <-chan []byte) {
+	glog.Infof("Listening for reports")
 	for b := range ch {
-		glog.V(3).Infof("Received %d byte report", len(b))
-		glog.V(5).Infof("Received: %s", string(b))
+		glog.V(1).Infof("Received %d byte report", len(b))
+		glog.V(5).Infof("Received report:\n%s\n--\n", string(b))
 		data := make(map[string]interface{})
 		err := json.Unmarshal(b, &data)
 		if err != nil {
@@ -480,7 +601,7 @@ func (s *Server) ListenForReports(ch <-chan []byte) {
 // uploadForm provides a simple web form for manual uploads.
 func (s *Server) uploadForm(w http.ResponseWriter, req *http.Request) error {
 	if s.opts.UseOpenID {
-		err := s.authenticate(w, req)
+		_, err := s.authenticate(w, req)
 		if err != nil {
 			return err
 		}
@@ -494,7 +615,12 @@ func (s *Server) uploadForm(w http.ResponseWriter, req *http.Request) error {
 }
 
 const uploadHTML = `<!DOCTYPE html>
-<title>Upload form</title>
+<title>Upload notebook | Prog-edu-assistant</title>
+<link rel='stylesheet' type='text/css' href='/static/style.css'/>
+<h2>Notebook upload</h2>
+You can upload a notebook for checking.
+Only notebooks from https://github.com/salikh/student-notebooks are accepted for checking.
+<p>
 <form method="POST" action="/upload" enctype="multipart/form-data">
 	<input type="file" name="notebook">
 	<input type="submit" value="Upload">

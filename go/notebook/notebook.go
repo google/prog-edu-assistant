@@ -512,9 +512,9 @@ func (n *Notebook) ToStudent(lang Language) (*Notebook, error) {
 		source := cell.Source
 		if cell.Type == "markdown" {
 			var err error
-			if hasMetadata(assignmentMetadataRegex, cell.Source) {
+			if hasMetadata(assignmentMetadataRegex, source) {
 				var metadata map[string]interface{}
-				metadata, source, err = extractMetadata(assignmentMetadataRegex, cell.Source)
+				metadata, source, err = extractMetadata(assignmentMetadataRegex, source)
 				if err != nil {
 					return nil, err
 				}
@@ -523,9 +523,9 @@ func (n *Notebook) ToStudent(lang Language) (*Notebook, error) {
 					assignmentMetadata[k] = v
 				}
 			}
-			if hasMetadata(exerciseMetadataRegex, cell.Source) {
+			if hasMetadata(exerciseMetadataRegex, source) {
 				// Replace exercise metadata.
-				exerciseMetadata, source, err = extractMetadata(exerciseMetadataRegex, cell.Source)
+				exerciseMetadata, source, err = extractMetadata(exerciseMetadataRegex, source)
 				if err != nil {
 					return nil, err
 				}
@@ -651,9 +651,9 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 		source := cell.Source
 		if cell.Type == "markdown" {
 			var err error
-			if hasMetadata(assignmentMetadataRegex, cell.Source) {
+			if hasMetadata(assignmentMetadataRegex, source) {
 				var metadata map[string]interface{}
-				metadata, source, err = extractMetadata(assignmentMetadataRegex, cell.Source)
+				metadata, source, err = extractMetadata(assignmentMetadataRegex, source)
 				if err != nil {
 					return nil, err
 				}
@@ -669,9 +669,9 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 					assignmentMetadata[k] = v
 				}
 			}
-			if hasMetadata(exerciseMetadataRegex, cell.Source) {
+			if hasMetadata(exerciseMetadataRegex, source) {
 				// Replace exercise metadata.
-				exerciseMetadata, source, err = extractMetadata(exerciseMetadataRegex, cell.Source)
+				exerciseMetadata, source, err = extractMetadata(exerciseMetadataRegex, source)
 				if err != nil {
 					return nil, err
 				}
