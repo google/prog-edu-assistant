@@ -13,6 +13,7 @@ go_binary(
     ],
     importpath = "github.com/google/prog-edu-assistant/cmd/uploadserver",
     deps = [
+        "//go/autograder",
         "//go/queue",
         "//go/uploadserver",
         "@com_github_golang_glog//:go_default_library",
@@ -35,6 +36,7 @@ go_image(
     ],
     importpath = "github.com/google/prog-edu-assistant/cmd/uploadserver",
     deps = [
+        "//go/autograder",
         "//go/queue",
         "//go/uploadserver",
         "@com_github_golang_glog//:go_default_library",

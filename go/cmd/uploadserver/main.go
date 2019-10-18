@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/prog-edu-assistant/autograder"
 	"github.com/google/prog-edu-assistant/queue"
 	"github.com/google/prog-edu-assistant/uploadserver"
 	"golang.org/x/oauth2"
@@ -51,6 +52,24 @@ var (
 		"The name of the queue to listen for the reports.")
 	staticDir = flag.String("static_dir", "", "The directory to serve static files from. "+
 		"The files are exposed at the path /static.")
+	gradeLocally = flag.Bool("grade_locally", false,
+		"If true, specifies that the server should run the autograder locally "+
+			"instead of using the message queue.")
+	autograderDir = flag.String("autograder_dir", "",
+		"The root directory of autograder scripts. Used with --grade_locally.")
+	nsjailPath = flag.String("nsjail_path", "/usr/local/bin/nsjail",
+		"The path to nsjail binary. Used with --grade_locally.")
+	pythonPath = flag.String("python_path", "/usr/bin/python3",
+		"The path to python binary. Used with --grade_locally.")
+	scratchDir = flag.String("scratch_dir", "/tmp/autograde",
+		"The base directory to create scratch directories for autograding. "+
+			"Used with --grade_locally.")
+	disableCleanup = flag.Bool("disable_cleanup", false,
+		"If true, does not delete scratch directory after running the tests. "+
+			"Used with --grade_locally.")
+	autoRemove = flag.Bool("auto_remove", false,
+		"If true, removes the scratch directory before creating a new one. "+
+			"This is useful together with --disable_cleanup and --grade_locally.")
 )
 
 func main() {
@@ -114,28 +133,41 @@ func run() error {
 			allowedUsers[email] = true
 		}
 	}
-	delay := 500 * time.Millisecond
-	retryUntil := time.Now().Add(60 * time.Second)
 	var q *queue.Channel
 	var ch <-chan []byte
-	for {
-		var err error
-		q, err = queue.Open(*queueSpec)
-		if err != nil {
-			if time.Now().After(retryUntil) {
-				return fmt.Errorf("error opening queue %q: %s", *queueSpec, err)
+	var ag *autograder.Autograder
+	if *gradeLocally {
+		ag = &autograder.Autograder{
+			Dir:            *autograderDir,
+			ScratchDir:     *scratchDir,
+			NSJailPath:     *nsjailPath,
+			PythonPath:     *pythonPath,
+			DisableCleanup: *disableCleanup,
+			AutoRemove:     *autoRemove,
+		}
+	} else {
+		// Connect to message queue if not grading locally.
+		delay := 500 * time.Millisecond
+		retryUntil := time.Now().Add(60 * time.Second)
+		for {
+			var err error
+			q, err = queue.Open(*queueSpec)
+			if err != nil {
+				if time.Now().After(retryUntil) {
+					return fmt.Errorf("error opening queue %q: %s", *queueSpec, err)
+				}
+				glog.V(1).Infof("error opening queue %q: %s, retrying in %s", *queueSpec, err, delay)
+				time.Sleep(delay)
+				delay = delay * 2
+				continue
 			}
-			glog.V(1).Infof("error opening queue %q: %s, retrying in %s", *queueSpec, err, delay)
-			time.Sleep(delay)
-			delay = delay * 2
-			continue
+			ch, err = q.Receive(*reportQueue)
+			if err != nil {
+				return fmt.Errorf("error receiving on queue %q: %s", *reportQueue, err)
+			}
+			glog.Infof("Listening for reports on the queue %q", *reportQueue)
+			break
 		}
-		ch, err = q.Receive(*reportQueue)
-		if err != nil {
-			return fmt.Errorf("error receiving on queue %q: %s", *reportQueue, err)
-		}
-		glog.Infof("Listening for reports on the queue %q", *reportQueue)
-		break
 	}
 	addr := ":" + strconv.Itoa(*port)
 	protocol := "http"
@@ -149,6 +181,7 @@ func run() error {
 	}
 	s := uploadserver.New(uploadserver.Options{
 		AllowCORS:        *allowCORS,
+		GradeLocally:     *gradeLocally,
 		ServerURL:        serverURL,
 		UploadDir:        *uploadDir,
 		Channel:          q,
@@ -171,9 +204,14 @@ func run() error {
 		HashSalt:         os.Getenv("HASH_SALT"),
 		StaticDir:        *staticDir,
 		HTTPRedirectPort: *httpRedirectPort,
+		Autograder:       ag,
 	})
-	go s.ListenForReports(ch)
-	fmt.Printf("\n  Serving on %s\n\n", serverURL)
+	if *gradeLocally {
+		fmt.Printf("\n  Serving on %s (grading locally)\n\n", serverURL)
+	} else {
+		go s.ListenForReports(ch)
+		fmt.Printf("\n  Serving on %s (with grading queue)\n\n", serverURL)
+	}
 	if *useHTTPS {
 		return s.ListenAndServeTLS(addr, *sslCertFile, *sslKeyFile)
 	}

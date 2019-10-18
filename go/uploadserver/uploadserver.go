@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/prog-edu-assistant/autograder"
 	"github.com/google/prog-edu-assistant/queue"
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
@@ -37,6 +38,9 @@ type Options struct {
 	UploadDir string
 	// AllowCORS specifies whether cross-origin requests are allowed.
 	AllowCORS bool
+	// GradeLocally is boolean, if true specifies whether the autograding task
+	// should be invoked locally without using a message queue.
+	GradeLocally bool
 	// QueueName is the name of the queue to post uploads.
 	QueueName string
 	// Channel is the interface to the message queue.
@@ -67,6 +71,9 @@ type Options struct {
 	StaticDir string
 	// HTTPRedirectPort controls the HTTP redirect to HTTPS.
 	HTTPRedirectPort int
+	// Autograder contains the setup for the local grading environment,
+	// only used when GradeLocally is true.
+	*autograder.Autograder
 }
 
 // Server provides an implementation of a web server for handling student
@@ -212,10 +219,10 @@ func (s *Server) handleFavIcon(w http.ResponseWriter, req *http.Request) {
 // directory, and serves it if it exists. If the file does not exists, it
 // serves a small piece of HTML with inline Javascript that automatically
 // reloads itself with exponential backoff. After a few retries it reports
-// generic error and stops autoreloading. Note that if the user manually refreshes
-// the page later, the same autoreload process is repeated. This process
-// is designed to handle the case of workers being overloaded with graing work
-// and producing reports with long delay.
+// generic error and stops autoreloading. Note that if the user manually
+// refreshes the page later, the same autoreload process is repeated. This
+// process is designed to handle the case of workers being overloaded with
+// grading work and producing reports with long delay.
 func (s *Server) handleReport(w http.ResponseWriter, req *http.Request) error {
 	basename := path.Base(req.URL.Path)
 	filename := filepath.Join(s.opts.UploadDir, basename+".txt")
@@ -266,8 +273,12 @@ function refresh(t) {
 	if err != nil {
 		return err
 	}
+	return s.renderReport(w, basename, b)
+}
+
+func (s *Server) renderReport(w http.ResponseWriter, submissionID string, reportData []byte) error {
 	data := make(map[string]interface{})
-	err = json.Unmarshal(b, &data)
+	err := json.Unmarshal(reportData, &data)
 	if err != nil {
 		return err
 	}
@@ -276,7 +287,7 @@ function refresh(t) {
 	var reports = make(map[string]string)
 	// Extract reports
 	fill := &reportFill{
-		Title: "Report for " + basename,
+		Title: "Report for " + submissionID,
 	}
 	for exerciseID, x := range data {
 		m, ok := x.(map[string]interface{})
@@ -299,7 +310,7 @@ function refresh(t) {
 		fill.Exercises = append(fill.Exercises, exerciseFill{exerciseID, template.HTML(reports[exerciseID])})
 	}
 	if len(fill.Exercises) == 0 {
-		fill.ErrorMessage = fmt.Sprintf("No checks defined for %s", basename)
+		fill.ErrorMessage = fmt.Sprintf("Report %s contained no checks", submissionID)
 	}
 	return reportTmpl.Execute(w, fill)
 }
@@ -509,8 +520,8 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	}
 	// TODO(salikh): Add user identifier to the file name.
 	submissionID := uuid.New().String()
-	filename := filepath.Join(s.opts.UploadDir, submissionID+".ipynb")
-	err = ioutil.WriteFile(filename, b, 0700)
+	submissionFilename := filepath.Join(s.opts.UploadDir, submissionID+".ipynb")
+	err = ioutil.WriteFile(submissionFilename, b, 0700)
 	glog.V(3).Infof("Uploaded %d bytes", len(b))
 	if err != nil {
 		return fmt.Errorf("error writing uploaded file: %s", err)
@@ -536,22 +547,35 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	glog.V(3).Infof("Checking %d bytes", len(b))
-	err = s.scheduleCheck(b)
-	if err != nil {
-		return err
-	}
 	// TODO(salikh): check if submissionID needs any escaping. Normally it is a UUID.
 	reportURL := "/report/" + submissionID
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	// X-Report-Url header is used to report back the link to the report.
 	w.Header().Set("X-Report-Url", reportURL)
 	glog.V(5).Infof("Uploaded: %s", string(b))
-	err = uploadResultTmpl.Execute(w, reportURL)
-	if err != nil {
-		glog.Error(err)
+	if !s.opts.GradeLocally {
+		glog.V(3).Infof("Checking %d bytes", len(b))
+		err = s.scheduleCheck(b)
+		if err != nil {
+			return err
+		}
+		err = uploadResultTmpl.Execute(w, reportURL)
+		if err != nil {
+			glog.Error(err)
+		}
+		return nil
 	}
-	return nil
+	// Grade locally
+	report, err := s.opts.Autograder.Grade(b)
+	if err != nil {
+		return fmt.Errorf("error grading: %s", err)
+	}
+	reportFilename := filepath.Join(s.opts.UploadDir, submissionID+".txt")
+	err = ioutil.WriteFile(reportFilename, report, 0775)
+	if err != nil {
+		return fmt.Errorf("error writing to %q: %s", reportFilename, err)
+	}
+	return s.renderReport(w, submissionID, report)
 }
 
 var uploadResultTmpl = template.Must(template.New("uploadResultTmpl").Parse(`
