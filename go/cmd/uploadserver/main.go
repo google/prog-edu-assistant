@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	port             = flag.Int("port", 8000, "The port to serve HTTP/S.")
+	port             = flag.Int("port", 0, "The port to serve HTTP/S. If 0, use the PORT environment variable, or 8000 if PORT is unset.")
 	useHTTPS         = flag.Bool("use_https", false, "If true, use HTTPS instead of HTTP.")
 	httpRedirectPort = flag.Int("http_redirect_port", 0, "If non-zero, listen HTTP on the specified port and redirect to to SERVER_URL (assumed to be HTTPS)")
 	sslCertFile      = flag.String("ssl_cert_file", "localhost.crt",
@@ -170,6 +170,18 @@ func run() error {
 		}
 	}
 	addr := ":" + strconv.Itoa(*port)
+	if *port == 0 {
+		envValue := os.Getenv("PORT")
+		if envValue == "" {
+			addr = ":8000"
+		} else {
+			_, err := strconv.ParseInt(envValue, 10, 32)
+			if err != nil {
+				return fmt.Errorf("error parsing PORT value %q: %s", envValue, err)
+			}
+			addr = ":" + envValue
+		}
+	}
 	protocol := "http"
 	if *useHTTPS {
 		protocol = "https"
