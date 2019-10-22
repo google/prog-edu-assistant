@@ -38,6 +38,103 @@ There are two more necessary pieces to install:
 *   Jupyter notebook extension for submitting student notebooks, see
     [../nbextensions/upload_it/README.md]
 
+## How to author a new assignment
+
+1. Create a new Python 3 notebook in Jupyter.
+1. Pick a new assignment name (it must be unique among the assignment
+   names that already exist in the project). Add the following metadata block
+	 inside a markdown cell:
+
+	 ```
+	 # ASSIGNMENT METADATA
+	 assignment_id: "Variables"
+	 ```
+
+1. Add some introduction and explanatory material.
+1. Add an exercise. Use an exercise name that is unique inside this assignment
+	 notebook.
+
+	 ```
+   # EXERCISE METADATA
+   exercise_id: "BigramFrequency"
+	 ```
+
+1. Add a canonical solution cell.
+
+		```
+		%%solution
+		def TopBigramFrequency(k):
+				""" # BEGIN PROMPT
+				# ... put your program here
+				""" # END PROMPT
+				# BEGIN SOLUTION
+				return {'in the': 100, 'something else': 1}
+				# END SOLUTION
+		```
+
+1. Add a student test cell.
+
+		```
+		%%studenttest StudentTest
+		assert TopBigramFrequency(2)['in the'] == 100
+		```
+
+1. Add an autograder test cell.
+
+		```
+		%%inlinetest AutograderTest
+		assert 'TopBigramFrequency' in globals(), "Did you define a function named 'TopBigramFrequency' in the solution cell?"
+		assert str(TopBigramFrequency.__class__) == "<class 'function'>", "Did you define a function named 'TopBigramFrequency'? There was a %s instead" % TopBigramFrequency.__class__
+		assert TopBigramFrequency(2)['in the'] == 100
+		```
+
+1. Test the canonical submission with autograder test
+
+		```
+		result, log = %autotest AutograderTest
+		report(AutograderTest, results=result.results)
+		```
+
+		TODO(salikh): Add a snippet for asserting that the test passed.
+
+1. Add a submission that is incorrect on purpose.
+
+		```
+		%%submission
+		TopBigramFrequency = 1
+		```
+
+		and test it with the autograder test.
+
+		```
+		result, log = %autotest AutograderTest
+		report(AutograderTest, results=result.results)
+		```
+
+		TODO(salikh): Add a snippet for asserting that the test detected a problem
+		and reported it in an expected way.
+
+1. Add a build rule for the assignment notebook to `exercises/BUILD.bazel`:
+
+		```
+		assignment_notebook(
+				name = "nlp-intro",
+				srcs = ["nlp-intro-master.ipynb"],
+		)
+
+		# TODO(salikh): Create the tar file with autograder tests automatically in assignment_notebook().
+		pkg_tar(
+				name = "nlp-intro-autograder_tar",
+				srcs = [":nlp-intro_autograder"],
+				mode = "644",
+				package_dir = "autograder",
+				strip_prefix = "nlp-intro-autograder",
+		)
+		```
+
+		and add it to the autograder image (add `":nlp-intro-autograder_tar"` to the `deps` list of
+		the rule `autograder_tar`).
+
 ## Structure of the programming assignment notebooks
 
 Each programming assignment resides in a separate master Jupyter notebook. At
