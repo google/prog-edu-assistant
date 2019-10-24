@@ -1,4 +1,11 @@
-# Google Compute Engine (GCE)
+# Deployment instructions
+
+There are two ways to deploy the autograder backend:
+
+* With Docker Compose single-host deployment
+* With Google Cloud Run
+
+# Docker Compose deployment on Google Compute Engine (GCE)
 
 ## Prerequisites
 
@@ -114,3 +121,31 @@ Or start and detach (on a dev machine):
 ## Delete the instance after it is no longer needed (on a dev machine)
 
     gcloud compute instances delete prog-edu-assistant
+
+# Google Cloud Run deployment
+
+Google Cloud Run is a an attractive deployment option, because it
+provides automatic scaling from zero, which means that there is no
+need for manual capacity planning. The autograding server works in
+a combined model with the python grading working on the same
+machine as the upload server.
+
+Here is an example of the deploy command:
+
+    docker/build.sh && \
+    docker tag combined asia.gcr.io/${GCP_PROJECT?}/combined && \
+    docker push asia.gcr.io/${GCP_PROJECT?}/combined && \
+    gcloud beta run deploy \
+      combined \
+      --image asia.gcr.io/${GCP_PROJECT?}/combined \
+      --allow-unauthenticated \
+      --platform=managed \
+      --region asia-northeast1 \
+      --set-env-vars=GCP_PROJECT=${GCP_PROJECT?},\
+    LOG_BUCKET=nlp-lecture-20191025-logs,\
+    SERVER_URL=https://combined-v6gvzmyosa-an.a.run.app,\
+    HASH_SALT=abcde,\
+    COOKIE_AUTH_KEY=0123456789abcdef,\
+    COOKIE_ENCRYPT_KEY=1234567890abcdef
+
+TODO(salikh): Implement authentication with JWT.
