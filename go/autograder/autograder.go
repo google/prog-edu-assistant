@@ -496,6 +496,7 @@ type inlineReportFill struct {
 	FormattedSource htmltemplate.HTML
 	Passed          bool
 	Error           string
+	Logs            string
 }
 
 // The template to render source code if syntax highlighter failed. It escapes the passed
@@ -509,6 +510,7 @@ var inlineReportTmpl = htmltemplate.Must(htmltemplate.New("inlinereport").Parse(
 <span class='ico green'>&check;</span><span class='message'>Looks OK.</span>
 {{else}}
 <span class='ico red'>&#x274C;</span><span class='message error'>{{.Error}}</span>
+<!-- {{.Logs}} -->
 {{end}}
 `))
 
@@ -615,6 +617,7 @@ func (ag *Autograder) RunInlineTest(dir, filename, submissionFilename string) (m
 		FormattedSource: htmltemplate.HTML(formattedSource),
 		Passed:          passed,
 		Error:           message,
+		Logs:            string(out),
 	})
 	if err != nil {
 		return nil, "", "", err
