@@ -50,6 +50,11 @@ genrule(
     ],
 )
 
+assignment_notebook(
+    name = "nlp-exercise",
+    srcs = ["nlp-exercise-master.ipynb"],
+)
+
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -74,6 +79,14 @@ pkg_tar(
     mode = "644",
     package_dir = "autograder",
     strip_prefix = "oop-en-autograder",
+)
+
+pkg_tar(
+    name = "nlp-exercise-autograder_tar",
+    srcs = [":nlp-exercise_autograder"],
+    mode = "644",
+    package_dir = "autograder",
+    strip_prefix = "nlp-exercise-autograder",
 )
 
 filegroup(
@@ -133,6 +146,7 @@ pkg_tar(
         ":functional-ja-autograder_tar",
         ":helloworld-en-autograder_tar",
         ":oop-en-autograder_tar",
+	":nlp-exercise-autograder_tar"
     ],
 )
 
@@ -155,6 +169,7 @@ pkg_tar(
         ":dataframe-pre1-ja_student",
         ":dataframe-pre2-ja_student",
         ":dataframe-pre3-ja_student",
+	":nlp-exercise_student",
     ] + glob(["data/*"]),
     mode = "644",
     strip_prefix = ".",  # This is to prevent directory flattening.
