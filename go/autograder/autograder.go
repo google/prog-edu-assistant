@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/prog-edu-assistant/notebook"
@@ -300,6 +301,7 @@ func (ag *Autograder) Grade(notebookBytes []byte) ([]byte, error) {
 	result["assignment_id"] = assignmentID
 	result["user_hash"] = userHash
 	result["submission_id"] = submissionID
+	result["timestamp"] = time.Now().Unix()
 	b, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return nil, idErrorf(submissionID, "error serializing report json: %s", err)

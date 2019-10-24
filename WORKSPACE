@@ -109,6 +109,30 @@ go_repository(
     importpath = "github.com/gorilla/context",
 )
 
+go_repository(
+    name = "org_golang_google_api",
+    commit = "master",
+    importpath = "google.golang.org/api",
+)
+
+go_repository(
+    name = "com_github_googleapis_gax_go",
+    importpath = "github.com/googleapis/gax-go",
+    commit = "master",
+)
+
+go_repository(
+    name = "io_opencensus_go",
+    importpath = "go.opencensus.io",
+    tag = "master",
+)
+
+go_repository(
+    name = "com_github_golang_groupcache",
+    commit = "master",
+    importpath = "github.com/golang/groupcache",
+)
+
 # Dependency of github.com/sourcegraph/syntaxhighlight.
 go_repository(
     name = "com_github_sourcegraph_annotate",

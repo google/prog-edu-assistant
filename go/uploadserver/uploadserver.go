@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/prog-edu-assistant/autograder"
 	"github.com/google/prog-edu-assistant/queue"
@@ -74,6 +75,15 @@ type Options struct {
 	// Autograder contains the setup for the local grading environment,
 	// only used when GradeLocally is true.
 	*autograder.Autograder
+	// LogToBucket specifies whether the server should write
+	// logs to the Google Cloud Storage bucket.
+	LogToBucket bool
+	// LogBucketName specifies the bucket name. This is only
+	// used if LogToBucket is true.
+	LogBucketName string
+	// ProjectID is the GCP project ID that is used for Google
+	// Cloud Storage access if LogToBucket is true.
+	ProjectID string
 }
 
 // Server provides an implementation of a web server for handling student
@@ -543,16 +553,36 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	}
 	metadata["submission_id"] = submissionID
 	metadata["user_hash"] = userHash
+	metadata["timestamp"] = time.Now().Unix()
 	b, err = json.Marshal(data)
 	if err != nil {
 		return err
 	}
-	// TODO(salikh): check if submissionID needs any escaping. Normally it is a UUID.
+	// submissionID is an UUID, so it does not require escaping.
 	reportURL := "/report/" + submissionID
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	// X-Report-Url header is used to report back the link to the report.
 	w.Header().Set("X-Report-Url", reportURL)
 	glog.V(5).Infof("Uploaded: %s", string(b))
+	if s.opts.LogToBucket && s.opts.LogBucketName != "" {
+		ctx := req.Context()
+		client, err := storage.NewClient(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create Cloud Storage client: %w", err)
+		}
+		bucket := client.Bucket(s.opts.LogBucketName)
+		logW := bucket.Object(submissionID + ".ipynb").NewWriter(ctx)
+		n, err := logW.Write(b)
+		if err != nil {
+			return fmt.Errorf("error writing log to bucket %q: %w",
+				s.opts.LogBucketName, err)
+		}
+		err = logW.Close()
+		if err != nil {
+			return fmt.Errorf("error closing log writer: %w", err)
+		}
+		glog.V(5).Infof("Written %d bytes to %s to log bucket %s", n, submissionID+".ipynb", s.opts.LogBucketName)
+	}
 	if !s.opts.GradeLocally {
 		glog.V(3).Infof("Checking %d bytes", len(b))
 		err = s.scheduleCheck(b)
@@ -574,6 +604,25 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	err = ioutil.WriteFile(reportFilename, report, 0775)
 	if err != nil {
 		return fmt.Errorf("error writing to %q: %s", reportFilename, err)
+	}
+	if s.opts.LogToBucket && s.opts.LogBucketName != "" {
+		ctx := req.Context()
+		client, err := storage.NewClient(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create Cloud Storage client: %w", err)
+		}
+		bucket := client.Bucket(s.opts.LogBucketName)
+		logW := bucket.Object(submissionID + ".txt").NewWriter(ctx)
+		n, err := logW.Write(report)
+		if err != nil {
+			return fmt.Errorf("error writing log to bucket %q: %w",
+				s.opts.LogBucketName, err)
+		}
+		err = logW.Close()
+		if err != nil {
+			return fmt.Errorf("error closing log writer: %w", err)
+		}
+		glog.V(5).Infof("Written %d bytes to %s to log bucket %s", n, submissionID+".txt", s.opts.LogBucketName)
 	}
 	return s.renderReport(w, submissionID, report)
 }

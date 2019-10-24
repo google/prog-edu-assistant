@@ -70,6 +70,12 @@ var (
 	autoRemove = flag.Bool("auto_remove", false,
 		"If true, removes the scratch directory before creating a new one. "+
 			"This is useful together with --disable_cleanup and --grade_locally.")
+	logToBucket = flag.Bool("log_to_bucket", false,
+		"If true, configures the server to write logs to Google Cloud "+
+			"Storage bucket. The bucket name should be provided "+
+			"in the environment variable LOG_BUCKET, "+
+			"and the GCP project ID should be provided in "+
+			"the environment variable GCP_PROJECT")
 )
 
 func main() {
@@ -217,6 +223,9 @@ func run() error {
 		StaticDir:        *staticDir,
 		HTTPRedirectPort: *httpRedirectPort,
 		Autograder:       ag,
+		LogToBucket:      *logToBucket,
+		LogBucketName:    os.Getenv("LOG_BUCKET"),
+		ProjectID:        os.Getenv("GCP_PROJECT"),
 	})
 	if *gradeLocally {
 		fmt.Printf("\n  Serving on %s (grading locally)\n\n", serverURL)
