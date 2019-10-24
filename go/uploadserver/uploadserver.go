@@ -338,7 +338,117 @@ type reportFill struct {
 
 var reportTmpl = template.Must(template.New("reportTmpl").Parse(`
 <title>{{.Title}}</title>
-<link rel='stylesheet' type='text/css' href='/static/style.css'/>
+<style type='text/css'>
+h2 {
+  color: #697;
+  font-size: 10pt;
+  font-family: Verdana, Arial, sans-serif;
+  margin-top: 2em;
+}
+.message {
+  font-size: 14pt;
+  font-weight: medium;
+}
+.ico {
+  font-size: 16pt;
+  font-weight: bold;
+  padding: 0px 2px 0px 2px;
+  margin: 10px 4px 1px 4px;
+  background: #EEE;
+  border: 1pt solid #DDD;
+  border-radius: 3pt;
+}
+.green {
+  color: #2F2;
+}
+.red {
+  color: #F22;
+}
+.code {
+  white-space: pre;
+  font-family: monospace;
+  background: #F0F0F0;
+  padding: 3pt;
+  margin: 4pt;
+  border: 1pt solid #DDD;
+  border-radius: 3pt;
+}
+.code ol {
+  margin: 0px;
+  padding: 0px;
+  padding-inline-start: 22pt;
+  margin-block-start: 0em;
+  margin-block-end: 0em;
+  line-height: 10%;
+}
+.code ol li {
+  margin: 0px;
+  padding: 0px;
+  line-height: 120%;
+}
+.code ol li:nth-child(odd) {
+  background: #F8F8F8;
+}
+.code li:last-child {
+  margin-bottom: 0px;
+}
+
+/*
+ * Based on default theme
+ * from http://github.com/google/code-prettify.
+ */
+
+/* SPAN elements with the classes below are added by prettyprint. */
+.pln { color: #000 }  /* plain text */
+
+@media screen {
+  .str { color: #080 }  /* string content */
+  .kwd { color: #008 }  /* a keyword */
+  .com { color: #800 }  /* a comment */
+  .typ { color: #606 }  /* a type name */
+  .lit { color: #066 }  /* a literal value */
+  /* punctuation, lisp open bracket, lisp close bracket */
+  .pun, .opn, .clo { color: #660 }
+  .tag { color: #008 }  /* a markup tag name */
+  .atn { color: #606 }  /* a markup attribute name */
+  .atv { color: #080 }  /* a markup attribute value */
+  .dec, .var { color: #606 }  /* a declaration; a variable name */
+  .fun { color: red }  /* a function name */
+}
+
+/* Use higher contrast and text-weight for printable form. */
+@media print, projection {
+  .str { color: #060 }
+  .kwd { color: #006; font-weight: bold }
+  .com { color: #600; font-style: italic }
+  .typ { color: #404; font-weight: bold }
+  .lit { color: #044 }
+  .pun, .opn, .clo { color: #440 }
+  .tag { color: #006; font-weight: bold }
+  .atn { color: #404 }
+  .atv { color: #060 }
+}
+
+/* Put a border around prettyprinted code snippets. */
+pre.prettyprint { padding: 2px; border: 1px solid #888 }
+
+/* Specify class=linenums on a pre to get line numbering */
+ol.linenums { margin-top: 0; margin-bottom: 0 } /* IE indents via margin-left */
+li.L0,
+li.L1,
+li.L2,
+li.L3,
+li.L5,
+li.L6,
+li.L7,
+li.L8 { list-style-type: none }
+/* Alternate shading for lines */
+li.L1,
+li.L3,
+li.L5,
+li.L7,
+li.L9 { background: #eee }
+</style>
 {{range .Exercises}}
 {{if .ReportTitle}}
 <h2>{{.ReportTitle}}</h2>
