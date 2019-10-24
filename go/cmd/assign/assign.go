@@ -5,8 +5,9 @@
 //
 //   go run cmd/assign/assign.go
 //     -command student
-//     -input ../exercies/helloworld-en-master.ipynb
+//     -input ../exercises/helloworld-en-master.ipynb
 //     -output ./helloworld-student.ipynb
+//     -preamble ../exercises/preamble.py
 //
 //   go run cmd/assign/assign.go
 //     -command autograder
@@ -34,6 +35,9 @@ var (
 		"The file name of the output. If empty, output is written to stdout.")
 	language = flag.String("language", "",
 		"The language that should be used in the output notebook.")
+	preamble = flag.String("preamble", "",
+		"The file name of the preamble, i.e. a python code snippet "+
+			"to be added as a first code cell in student notebook.")
 )
 
 type commandDesc struct {
@@ -109,6 +113,20 @@ func studentCommand() error {
 	n, err = n.ToStudent(l)
 	if err != nil {
 		return err
+	}
+	if *preamble != "" {
+		b, err := ioutil.ReadFile(*preamble)
+		if err != nil {
+			return fmt.Errorf("error reading --preamble %q: %w",
+				*preamble, err)
+		}
+		// Prepend the preamble as a code cell.
+		n.Cells = append([]*notebook.Cell{
+			&notebook.Cell{
+				Type:   "code",
+				Source: string(b),
+			},
+		}, n.Cells...)
 	}
 	b, err := n.Marshal()
 	if err != nil {

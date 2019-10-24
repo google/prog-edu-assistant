@@ -1,5 +1,7 @@
 load("//exercises:defs.bzl", "assignment_notebook")
 
+exports_files(["preamble.py"])
+
 assignment_notebook(
     name = "dataframe-pre1-ja",
     srcs = ["dataframe-pre1-master.ipynb"],
@@ -44,8 +46,9 @@ genrule(
         "functional-master.ipynb",
     ],
     outs = ["functional-en-student.ipynb"],
-    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student --language=en""",
+    cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student --language=en --preamble=$(location :preamble.py)""",
     tools = [
+	":preamble.py",
         "//go/cmd/assign",
     ],
 )

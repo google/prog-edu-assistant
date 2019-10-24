@@ -19,9 +19,10 @@ def assignment_notebook(
 	name = name + "_student",
 	srcs = srcs,
 	outs = [name + '-student.ipynb'],
-	cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student""" + language_opt,
+	cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --preamble=$(location //exercises:preamble.py) --command=student""" + language_opt,
 	tools = [
 	    "//go/cmd/assign",
+	    "//exercises:preamble.py",
 	],
     )
     autograder_output = name + '-autograder'
