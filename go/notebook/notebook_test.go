@@ -290,6 +290,31 @@ class MyTest(unittest.TestCase):
 			input: []string{"context1", "context2", "%%studenttest A\ninline1\ninline2"},
 			want:  []string{},
 		},
+		{
+			name:  "ShellCallouts1",
+			input: []string{"%%inlinetest A\n!pip install something\naaa\nbbb"},
+			want:  []string{"\n", "aaa\nbbb\n"},
+		},
+		{
+			name:  "ShellCallouts2",
+			input: []string{"%%inlinetest A\naaa\n!pip install something\nbbb"},
+			want:  []string{"\n", "aaa\nbbb\n"},
+		},
+		{
+			name:  "ShellCallouts3",
+			input: []string{"%%inlinetest A\naaa\nbbb\n!pip install something"},
+			want:  []string{"\n", "aaa\nbbb\n\n"},
+		},
+		{
+			name:  "ShellCallouts4",
+			input: []string{"%%inlinetest A\naaa\n!pip install something\nbbb\n!something else\nccc"},
+			want:  []string{"\n", "aaa\nbbb\nccc\n"},
+		},
+		{
+			name:  "ShellCallouts5",
+			input: []string{"context", "%%inlinetest A\naaa\n!pip install something\nbbb\n!something else\nccc"},
+			want:  []string{"context\n", "aaa\nbbb\nccc\n"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -302,6 +327,9 @@ class MyTest(unittest.TestCase):
 			}
 			if len(got.Cells) != len(tt.want) {
 				t.Errorf("got %d output cells, want %d", len(got.Cells), len(tt.want))
+				for i, gotCell := range got.Cells {
+					t.Logf("got cell %d: [%s]", i, gotCell.Source)
+				}
 			}
 			var gotSources []string
 			for _, cell := range got.Cells {

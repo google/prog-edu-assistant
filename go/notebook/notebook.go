@@ -249,6 +249,7 @@ var (
 	tripleBacktickedRegex       = regexp.MustCompile("(?ms)^```([^`]|`[^`]|``[^`])*^```")
 	testMarkerRegex             = regexp.MustCompile("(?ms)^[ \t]*# TEST[^\n]*[\n]*")
 	studentTestRegex            = regexp.MustCompile("(?ms)^[ \t]*#? ?%%studenttest(?:[ \t]+([a-zA-Z][a-zA-Z0-9_]*))[ \t]*[\n]*")
+	shellCalloutRegex           = regexp.MustCompile("(?ms)^[ \t]*![^\n]*[\n]?")
 	inlineTestRegex             = regexp.MustCompile("(?ms)^[ \t]*#? ?%%inlinetest(?:[ \t]+([a-zA-Z][a-zA-Z0-9_]*))[ \t]*[\n]*")
 	inlineOrStudentTestRegex    = regexp.MustCompile("(?ms)^[ \t]*#? ?%%(?:inline|student)test(?:[ \t]+([a-zA-Z][a-zA-Z0-9_]*))[ \t]*[\n]*")
 	solutionMagicRegex          = regexp.MustCompile("^[ \t]*%%solution[^\n]*\n")
@@ -698,6 +699,17 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 			source = source[m[1]:]
 			// Uncomment the imports to enable access to 'import submission' and 'import submission_source'.
 			source = uncommentImports(source)
+			// Remove shell callouts.
+			if mm := shellCalloutRegex.FindAllStringIndex(source, -1); len(mm) > 0 {
+				// Remove the !pip install and other shell callout lines.
+				// Step back through the matches in order not to mess up the offsets.
+				for i := len(mm) - 1; i >= 0; i-- {
+					m := mm[i]
+					glog.V(3).Infof("removing [%s]", source[m[0]:m[1]])
+					source = source[:m[0]] + source[m[1]:]
+					glog.V(3).Infof("source after removal is [%s]", source)
+				}
+			}
 			var parts []string
 			// Create an inline test.
 			for _, c := range globalContext {
@@ -706,11 +718,12 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 				if err != nil {
 					return nil, err
 				}
-				if clean != nil {
+				if clean != nil && strings.Trim(clean.Source, " \t\n") != "" {
 					// Accumulate code.
 					parts = append(parts, clean.Source)
 				}
 			}
+			glog.V(3).Infof("parts: %q", parts)
 			return []*Cell{
 				// Store the context and the inline test itself into separate files,
 				// which will be used by the autograder to synthesize a complete inline test.
