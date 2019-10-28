@@ -245,6 +245,7 @@ func (n *Notebook) MapCells(mapFunc func(c *Cell) ([]*Cell, error)) (*Notebook, 
 var (
 	assignmentMetadataRegex     = regexp.MustCompile("(?m)^[ \t]*# ASSIGNMENT METADATA")
 	exerciseMetadataRegex       = regexp.MustCompile("(?m)^[ \t]*# EXERCISE METADATA")
+	globalContextRegex          = regexp.MustCompile("(?ms)^[ \t]*# *GLOBAL CONTEXT[ \t]*[\n]*")
 	languageMetadataRegex       = regexp.MustCompile("\\*\\*lang:([a-z]{2})\\*\\*")
 	tripleBacktickedRegex       = regexp.MustCompile("(?ms)^```([^`]|`[^`]|``[^`])*^```")
 	testMarkerRegex             = regexp.MustCompile("(?ms)^[ \t]*# TEST[^\n]*[\n]*")
@@ -420,6 +421,10 @@ func CleanForStudent(cell *Cell, assignmentMetadata, exerciseMetadata map[string
 		// Remove the %%studenttest  marker.
 		source = source[:m[0]] + source[m[1]:]
 	}
+	if m := globalContextRegex.FindStringIndex(source); m != nil {
+		// Remove the # GLOBAL CONTEXT  marker.
+		source = source[:m[0]] + source[m[1]:]
+	}
 	if m := inlineTestRegex.FindStringIndex(source); m != nil {
 		// Skip the %%inline test cell.
 		return nil, nil
@@ -573,10 +578,14 @@ func (n *Notebook) ToStudent(lang Language) (*Notebook, error) {
 			return nil, nil
 		}
 		// Source may have been modified.
-		return []*Cell{&Cell{
+		clean, err := CleanForStudent(&Cell{
 			Type:   "code",
 			Source: source,
-		}}, nil
+		}, assignmentMetadata, exerciseMetadata, lang)
+		if err != nil {
+			return nil, err
+		}
+		return []*Cell{clean}, nil
 	})
 	if err != nil {
 		return nil, err
@@ -788,7 +797,11 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 		} else {
 			// For every non-solution and non-inline test code cell, add it to global
 			// or exercise context (for inline tests).
-			if exerciseID == "" {
+			addToGlobal := exerciseID == ""
+			if m := globalContextRegex.FindStringIndex(source); m != nil {
+				addToGlobal = true
+			}
+			if addToGlobal {
 				// Before the first exercise, append to global context.
 				globalContext = append(globalContext, cell)
 			} else {

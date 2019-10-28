@@ -170,6 +170,11 @@ x = 1
 			input: []string{"%%inlinetest name\naaa\nbbb"},
 			want:  []string{},
 		},
+		{
+			name:  "GlobalContext1",
+			input: []string{"# GLOBAL CONTEXT\naaa\nbbb"},
+			want:  []string{"aaa\nbbb"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
