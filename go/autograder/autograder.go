@@ -63,11 +63,13 @@ type InlineTestFill struct {
 // The output format uses double braces to facilitate parsing
 // of the output by regexps.
 var inlineTestTmpl = template.Must(template.New("inlinetest").Parse(`import sys
+{{if .Context}}
 try:
   {{.Context}}
 except Exception as e:
   print("\nWhile executing context: ERROR{{"{{"}}%s{{"}}"}}" % e)
   raise e
+{{end}}
 try:
   {{.Submission}}
 except Exception as e:
@@ -86,11 +88,17 @@ except Exception as e:
 
 func generateInlineTest(context, submission, test string) ([]byte, error) {
 	var output bytes.Buffer
+	context = strings.ReplaceAll(context, "\n", "\n  ")
+	submission = strings.ReplaceAll(submission, "\n", "\n  ")
+	test = strings.ReplaceAll(test, "\n", "\n  ")
+	if strings.Trim(context, " \t\r\n") == "" {
+		context = ""
+	}
 	err := inlineTestTmpl.Execute(&output, &InlineTestFill{
 		// Indent the parts by two spaces to match the template.
-		Context:    strings.ReplaceAll(context, "\n", "\n  "),
-		Submission: strings.ReplaceAll(submission, "\n", "\n  "),
-		Inline:     strings.ReplaceAll(test, "\n", "\n  "),
+		Context:    context,
+		Submission: submission,
+		Inline:     test,
 	})
 	if err != nil {
 		return nil, err
