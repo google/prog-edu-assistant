@@ -1,0 +1,10 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "formatted_syntax_tb.txt",
+        "formatted_tb.txt",
+        "zero_division.py",
+    ],
+    visibility = ["//visibility:public"],
+)

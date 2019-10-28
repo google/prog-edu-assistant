@@ -1,0 +1,16 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "README.md",
+        "run.sh",
+        "submission1.py",
+        "submission2.py",
+        "submission3.py",
+        "submission4.py",
+        "submission5.py",
+        "syntax_test.py",
+    ],
+    visibility = ["//visibility:public"],
+)

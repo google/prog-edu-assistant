@@ -1,0 +1,12 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "README.md",
+        "//autograder/extract:all_files",
+        "//autograder/syntax:all_files",
+        "//autograder/unittest:all_files",
+    ],
+    visibility = ["//visibility:public"],
+)

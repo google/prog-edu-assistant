@@ -1,7 +1,7 @@
 module github.com/google/prog-edu-assistant
 
 require (
-	cloud.google.com/go v0.47.0 // indirect
+	cloud.google.com/go v0.47.0
 	cloud.google.com/go/storage v1.1.2
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -20,6 +20,7 @@ require (
 	golang.org/x/sys v0.0.0-20191024073052-e66fe6eb8e0c // indirect
 	golang.org/x/tools v0.0.0-20191024133924-9525425c6f02 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
+	google.golang.org/genproto v0.0.0-20191009194640-548a555dbc03
 	google.golang.org/grpc v1.24.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 )

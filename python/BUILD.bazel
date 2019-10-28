@@ -1,0 +1,12 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "utils.py",
+        "utils_test.py",
+        "//python/prog_edu_assistant_tools:all_files",
+        "//python/testdata:all_files",
+    ],
+    visibility = ["//visibility:public"],
+)

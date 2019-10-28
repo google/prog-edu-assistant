@@ -1,0 +1,10 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "LICENSE",
+        "setup.py",
+        "//python/prog_edu_assistant_tools/prog_edu_assistant_tools:all_files",
+    ],
+    visibility = ["//visibility:public"],
+)

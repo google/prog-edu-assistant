@@ -1,0 +1,13 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "README.md",
+        "TODO.txt",
+        "main.js",
+        "upload_it.png",
+        "upload_it.yaml",
+    ],
+    visibility = ["//visibility:public"],
+)

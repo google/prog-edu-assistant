@@ -1,0 +1,12 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "README.md",
+        "docker-compose.yml",
+        "secret.env.template",
+        "service-account.json.sample",
+    ],
+    visibility = ["//visibility:public"],
+)

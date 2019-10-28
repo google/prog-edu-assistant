@@ -1,0 +1,14 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "README.md",
+        "run.sh",
+        "//autograder/unittest/fail:all_files",
+        "//autograder/unittest/hello:all_files",
+        "//autograder/unittest/infloop:all_files",
+        "//autograder/unittest/infmem:all_files",
+    ],
+    visibility = ["//visibility:public"],
+)

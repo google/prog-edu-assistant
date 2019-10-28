@@ -1,0 +1,10 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "README.md",
+        "//nbextensions/upload_it:all_files",
+    ],
+    visibility = ["//visibility:public"],
+)

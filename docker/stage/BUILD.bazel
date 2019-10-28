@@ -1,0 +1,10 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "Dockerfile.combined",
+        "Dockerfile.server",
+        "Dockerfile.worker",
+    ],
+    visibility = ["//visibility:public"],
+)

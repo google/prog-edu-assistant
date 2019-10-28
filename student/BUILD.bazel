@@ -1,0 +1,12 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "LICENSE",
+        "README.md",
+        "postBuild",
+        "requirements.txt",
+    ],
+    visibility = ["//visibility:public"],
+)

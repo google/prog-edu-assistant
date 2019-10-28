@@ -1,0 +1,15 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "go.mod",
+        "go.sum",
+        "//go/autograder:all_files",
+        "//go/cmd:all_files",
+        "//go/notebook:all_files",
+        "//go/queue:all_files",
+        "//go/uploadserver:all_files",
+    ],
+    visibility = ["//visibility:public"],
+)

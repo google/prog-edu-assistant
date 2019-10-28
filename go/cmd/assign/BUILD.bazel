@@ -1,12 +1,25 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_binary(
     name = "assign",
+    embed = [":go_default_library"],
+    importpath = "github.com/google/prog-edu-assistant/cmd/assign",
+)
+
+go_library(
+    name = "go_default_library",
     srcs = ["assign.go"],
-    importpath = "github.com/google/prog-edu-assistant/assign/cmd",
-    deps = [
-        "//go/notebook",
+    importpath = "github.com/google/prog-edu-assistant/cmd/assign",
+    deps = ["//go/notebook"],
+)
+
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "assign.go",
     ],
 )

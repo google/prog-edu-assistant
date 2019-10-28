@@ -1,0 +1,10 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "infloop_test.py",
+        "submission.py",
+    ],
+    visibility = ["//visibility:public"],
+)

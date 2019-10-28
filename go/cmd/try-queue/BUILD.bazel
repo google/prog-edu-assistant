@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["tryqueue.go"],
+    importpath = "github.com/google/prog-edu-assistant/cmd/tryqueue",
+    visibility = ["//visibility:private"],
+    deps = ["//go/queue"],
+)
+
+go_binary(
+    name = "try-queue",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "tryqueue.go",
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,14 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "//go/cmd/assign:all_files",
+        "//go/cmd/grade:all_files",
+        "//go/cmd/post:all_files",
+        "//go/cmd/try-queue:all_files",
+        "//go/cmd/uploadserver:all_files",
+        "//go/cmd/worker:all_files",
+    ],
+    visibility = ["//visibility:public"],
+)

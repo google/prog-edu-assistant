@@ -1,10 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_binary(
     name = "uploadserver",
-    srcs = ["main.go"],
+    embed = [":go_default_library"],
     gc_linkopts = [
         "-linkmode",
         "external",
@@ -12,14 +12,6 @@ go_binary(
         "-static",
     ],
     importpath = "github.com/google/prog-edu-assistant/cmd/uploadserver",
-    deps = [
-        "//go/autograder",
-        "//go/queue",
-        "//go/uploadserver",
-        "@com_github_golang_glog//:go_default_library",
-        "@org_golang_x_oauth2//:go_default_library",
-        "@org_golang_x_oauth2//google:go_default_library",
-    ],
 )
 
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
@@ -42,5 +34,28 @@ go_image(
         "@com_github_golang_glog//:go_default_library",
         "@org_golang_x_oauth2//:go_default_library",
         "@org_golang_x_oauth2//google:go_default_library",
+    ],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/google/prog-edu-assistant/cmd/uploadserver",
+    deps = [
+        "//go/autograder",
+        "//go/queue",
+        "//go/uploadserver",
+        "@com_github_golang_glog//:go_default_library",
+        "@org_golang_x_oauth2//:go_default_library",
+        "@org_golang_x_oauth2//google:go_default_library",
+    ],
+)
+
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "main.go",
     ],
 )

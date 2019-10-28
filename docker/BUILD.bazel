@@ -1,0 +1,10 @@
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "build.sh",
+        "docker-compose.yml",
+        "//docker/stage:all_files",
+    ],
+    visibility = ["//visibility:public"],
+)

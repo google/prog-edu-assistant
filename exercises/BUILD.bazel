@@ -48,7 +48,7 @@ genrule(
     outs = ["functional-en-student.ipynb"],
     cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=student --language=en --preamble=$(location :preamble.py)""",
     tools = [
-	":preamble.py",
+        ":preamble.py",
         "//go/cmd/assign",
     ],
 )
@@ -149,7 +149,7 @@ pkg_tar(
         ":functional-ja-autograder_tar",
         ":helloworld-en-autograder_tar",
         ":oop-en-autograder_tar",
-	":nlp-exercise-autograder_tar"
+        ":nlp-exercise-autograder_tar",
     ],
 )
 
@@ -172,7 +172,7 @@ pkg_tar(
         ":dataframe-pre1-ja_student",
         ":dataframe-pre2-ja_student",
         ":dataframe-pre3-ja_student",
-	":nlp-exercise_student",
+        ":nlp-exercise_student",
     ] + glob(["data/*"]),
     mode = "644",
     strip_prefix = ".",  # This is to prevent directory flattening.
@@ -204,6 +204,30 @@ container_image(
     tars = [
         ":autograder_tar",
         #":nsjail_tar"
+    ],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "README.md",
+        "dataframe-pre1-master.ipynb",
+        "dataframe-pre2-master.ipynb",
+        "dataframe-pre3-master.ipynb",
+        "dataframe-scrape-weather-data.ipynb",
+        "defs.bzl",
+        "functional-master.ipynb",
+        "helloworld-en-master.ipynb",
+        "introduction-to-nlp-master-english.ipynb",
+        "introduction-to-nlp-wikipedia-preprocessing-japanese.ipynb",
+        "nlp-exercise-master.ipynb",
+        "oop-en-master.ipynb",
+        "preamble.py",
+        "test.csv",
+        "//exercises/data:all_files",
     ],
     visibility = ["//visibility:public"],
 )
