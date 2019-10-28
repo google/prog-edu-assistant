@@ -190,6 +190,12 @@ go_repository(
     vcs = "git",
 )
 
+go_repository(
+    name = "com_github_square_go_jose",
+    commit = "master",
+    importpath = "github.com/square/go-jose",
+)
+
 http_archive(
     name = "io_bazel_rules_docker",
     sha256 = "5dcd5820604c5b7e7c5f7db6e2b0cd1cf59eb0a30a0076fe3a4b86198365479a",

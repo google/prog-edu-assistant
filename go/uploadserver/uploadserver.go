@@ -5,6 +5,7 @@
 package uploadserver
 
 import (
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
@@ -48,6 +49,10 @@ type Options struct {
 	*queue.Channel
 	// UseOpenID enables authentication using OpenID Connect.
 	UseOpenID bool
+	// UseJWT enables authentication using JWT (JSON Web Tokens).
+	UseJWT bool
+	// PrivateKey is used for signing JWT tokens.
+	PrivateKey *rsa.PrivateKey
 	// AllowedUsers lists the users that are authorized to use this service.
 	// If the map is empty, no access control is performed, only authentication.
 	AllowedUsers map[string]bool

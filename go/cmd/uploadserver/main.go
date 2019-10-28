@@ -2,7 +2,11 @@
 package main
 
 import (
+	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -13,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/prog-edu-assistant/autograder"
 	"github.com/google/prog-edu-assistant/queue"
@@ -76,6 +81,11 @@ var (
 			"in the environment variable LOG_BUCKET, "+
 			"and the GCP project ID should be provided in "+
 			"the environment variable GCP_PROJECT")
+	useJWT = flag.Bool("use_jwt", true,
+		"If true, configures the server to support bearer authorization with JWT, "+
+			"as well as server handler to issue authorization tokens. If this is enabled, "+
+			"the key is read from a file stored in a cloud bucket and named in the format "+
+			"gs://bucket/keyfile in the environment variable JWT_KEY.")
 )
 
 func main() {
@@ -197,6 +207,34 @@ func run() error {
 		// Allow override from the environment.
 		serverURL = os.Getenv("SERVER_URL")
 	}
+	var rsaKey *rsa.PrivateKey
+	if *useJWT {
+		ctx := context.Background()
+		client, err := storage.NewClient(ctx)
+		if err != nil {
+			return fmt.Errorf("error creating Cloud Storage client: %s", err)
+		}
+		jwtKey := os.Getenv("JWT_KEY")
+		parts := strings.SplitN(jwtKey, "/", 4)
+		if len(parts) != 4 || parts[0] != "gs:" || parts[1] != "" {
+			return fmt.Errorf("JWT_KEY must have gs://bucket/keyfile format, got %q", jwtKey)
+		}
+		bucket := client.Bucket(parts[2])
+		obj := bucket.Object(parts[3])
+		reader, err := obj.NewReader(ctx)
+		if err != nil {
+			return fmt.Errorf("error reading from bucket object %q: %s", jwtKey, err)
+		}
+		b, err := ioutil.ReadAll(reader)
+		if err != nil {
+			return fmt.Errorf("error reading from bucket object %q: %s", jwtKey, err)
+		}
+		block, _ := pem.Decode(b)
+		rsaKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return fmt.Errorf("error parsing key from %q: %s", jwtKey, err)
+		}
+	}
 	s := uploadserver.New(uploadserver.Options{
 		AllowCORS:        *allowCORS,
 		GradeLocally:     *gradeLocally,
@@ -226,6 +264,8 @@ func run() error {
 		LogToBucket:      *logToBucket,
 		LogBucketName:    os.Getenv("LOG_BUCKET"),
 		ProjectID:        os.Getenv("GCP_PROJECT"),
+		UseJWT:           *useJWT,
+		PrivateKey:       rsaKey,
 	})
 	if *gradeLocally {
 		fmt.Printf("\n  Serving on %s (grading locally)\n\n", serverURL)

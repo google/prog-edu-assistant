@@ -1,0 +1,34 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_binary(
+    name = "keytool",
+    embed = [":go_default_library"],
+    gc_linkopts = [
+        "-linkmode",
+        "external",
+        "-extldflags",
+        "-static",
+    ],
+    importpath = "github.com/google/prog-edu-assistant/cmd/keytool",
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["keytool.go"],
+    importpath = "github.com/google/prog-edu-assistant/cmd/keytool",
+    deps = [
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_square_go_jose//:go_default_library",
+    ],
+)
+
+filegroup(
+    name = "all_files",
+    testonly = True,
+    srcs = [
+        "BUILD.bazel",
+        "keytool.go",
+    ],
+)
