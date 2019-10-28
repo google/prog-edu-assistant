@@ -190,10 +190,23 @@ go_repository(
     vcs = "git",
 )
 
+# JOSE dependency
+go_repository(
+    name = "org_golang_x_crypto",
+    commit = "d585fd2cc9195196078f516b69daff6744ef5e84",
+    importpath = "golang.org/x/crypto",
+)
+
+go_repository(
+    name = "in_gopkg_square_go_jose_v2",
+    commit = "master",
+    importpath = "gopkg.in/square/go-jose.v2",
+)
+
 go_repository(
     name = "com_github_square_go_jose",
-    commit = "master",
     importpath = "github.com/square/go-jose",
+    tag = "v2.4.0",
 )
 
 http_archive(

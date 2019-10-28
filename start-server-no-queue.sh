@@ -52,3 +52,4 @@ go run cmd/uploadserver/main.go \
   --nsjail_path="$(which nsjail)" \
   --disable_cleanup \
   --auto_remove \
+  --use_jwt

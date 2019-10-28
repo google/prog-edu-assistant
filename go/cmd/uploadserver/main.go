@@ -29,6 +29,7 @@ import (
 var (
 	port             = flag.Int("port", 0, "The port to serve HTTP/S. If 0, use the PORT environment variable, or 8000 if PORT is unset.")
 	useHTTPS         = flag.Bool("use_https", false, "If true, use HTTPS instead of HTTP.")
+	secureCookie     = flag.Bool("secure_cookie", false, "If true, set Secure attribute on cookies even with http. Secure cookie is always set with https.")
 	httpRedirectPort = flag.Int("http_redirect_port", 0, "If non-zero, listen HTTP on the specified port and redirect to to SERVER_URL (assumed to be HTTPS)")
 	sslCertFile      = flag.String("ssl_cert_file", "localhost.crt",
 		"The path to the signed SSL server certificate.")
@@ -209,25 +210,40 @@ func run() error {
 	}
 	var rsaKey *rsa.PrivateKey
 	if *useJWT {
-		ctx := context.Background()
-		client, err := storage.NewClient(ctx)
-		if err != nil {
-			return fmt.Errorf("error creating Cloud Storage client: %s", err)
-		}
 		jwtKey := os.Getenv("JWT_KEY")
-		parts := strings.SplitN(jwtKey, "/", 4)
-		if len(parts) != 4 || parts[0] != "gs:" || parts[1] != "" {
-			return fmt.Errorf("JWT_KEY must have gs://bucket/keyfile format, got %q", jwtKey)
+		if jwtKey == "" {
+			return fmt.Errorf("need to set JWT_KEY in order to use JWT authentication")
 		}
-		bucket := client.Bucket(parts[2])
-		obj := bucket.Object(parts[3])
-		reader, err := obj.NewReader(ctx)
-		if err != nil {
-			return fmt.Errorf("error reading from bucket object %q: %s", jwtKey, err)
-		}
-		b, err := ioutil.ReadAll(reader)
-		if err != nil {
-			return fmt.Errorf("error reading from bucket object %q: %s", jwtKey, err)
+		var b []byte
+		glog.Infof("JWT_KEY = %q", jwtKey)
+		var err error
+		if strings.HasPrefix(jwtKey, "gs://") {
+			ctx := context.Background()
+			client, err := storage.NewClient(ctx)
+			if err != nil {
+				return fmt.Errorf("error creating Cloud Storage client: %s", err)
+			}
+			// Load the key from Cloud Storage.
+			parts := strings.SplitN(jwtKey, "/", 4)
+			if len(parts) != 4 || parts[0] != "gs:" || parts[1] != "" {
+				return fmt.Errorf("JWT_KEY must have gs://bucket/keyfile format, got %q", jwtKey)
+			}
+			bucket := client.Bucket(parts[2])
+			obj := bucket.Object(parts[3])
+			reader, err := obj.NewReader(ctx)
+			if err != nil {
+				return fmt.Errorf("error reading from bucket object %q: %s", jwtKey, err)
+			}
+			b, err = ioutil.ReadAll(reader)
+			if err != nil {
+				return fmt.Errorf("error reading from bucket object %q: %s", jwtKey, err)
+			}
+		} else {
+			// Load the key from the filesystem.
+			b, err = ioutil.ReadFile(jwtKey)
+			if err != nil {
+				return fmt.Errorf("error reading JWT key from file %q: %s", jwtKey, err)
+			}
 		}
 		block, _ := pem.Decode(b)
 		rsaKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
@@ -255,7 +271,7 @@ func run() error {
 		// CookieEncryptKey should be a random string of 16 or 32 characters.
 		CookieEncryptKey: os.Getenv("COOKIE_ENCRYPT_KEY"),
 		// Use secure cookie when using HTTPS.
-		SecureCookie: *useHTTPS,
+		SecureCookie: *useHTTPS || *secureCookie,
 		// HashSalt should be a random string.
 		HashSalt:         os.Getenv("HASH_SALT"),
 		StaticDir:        *staticDir,

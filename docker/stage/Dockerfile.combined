@@ -44,4 +44,4 @@ RUN mkdir /tmp/uploads /tmp/scratch
 # By default use port 8000.
 EXPOSE 8000:8000/tcp
 
-ENTRYPOINT ["/usr/local/bin/uploadserver", "--upload_dir=/tmp/uploads", "--logtostderr", "--v=5", "--static_dir=/static", "--autograder_dir=/autograder", "--scratch_dir=/tmp/scratch", "--python_path=/usr/bin/python", "--nsjail_path=/usr/local/bin/nsjail", "--allow_cors", "--disable_cleanup", "--auto_remove", "--grade_locally", "--log_to_bucket"]
+ENTRYPOINT ["/usr/local/bin/uploadserver", "--upload_dir=/tmp/uploads", "--logtostderr", "--v=5", "--static_dir=/static", "--autograder_dir=/autograder", "--scratch_dir=/tmp/scratch", "--python_path=/usr/bin/python", "--nsjail_path=/usr/local/bin/nsjail", "--allow_cors", "--disable_cleanup", "--auto_remove", "--grade_locally", "--log_to_bucket", "--use_jwt", "--secure_cookie", "--use_openid"]

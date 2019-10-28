@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -29,6 +30,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
+	"gopkg.in/square/go-jose.v2"
 )
 
 // Options configures the behavior of the web server.
@@ -101,8 +103,6 @@ type Server struct {
 	// OauthConfig specifies endpoing configuration for the OpenID Connect
 	// authentication.
 	oauthConfig *oauth2.Config
-	// A random value used to match authentication callback to the request.
-	oauthState string
 }
 
 // New creates a new Server instance.
@@ -120,7 +120,6 @@ func New(opts Options) *Server {
 			Scopes:       []string{"profile", "email", "openid"},
 			Endpoint:     opts.AuthEndpoint,
 		},
-		oauthState: uuid.New().String(),
 	}
 	s.cookieStore.Options = &sessions.Options{
 		MaxAge:   3600,
@@ -136,6 +135,7 @@ func New(opts Options) *Server {
 		mux.Handle("/login", handleError(s.handleLogin))
 		mux.Handle("/callback", handleError(s.handleCallback))
 		mux.Handle("/logout", handleError(s.handleLogout))
+		mux.Handle("/token", handleError(s.handleToken))
 		mux.Handle("/profile", handleError(s.handleProfile))
 	}
 	if s.opts.StaticDir != "" {
@@ -146,7 +146,10 @@ func New(opts Options) *Server {
 	return s
 }
 
-const UserSessionName = "user_session"
+const (
+	UserSessionName  = "user_session"
+	LoginSessionName = "login_session"
+)
 
 // hashId uses cryptographic hash (sha224) and a secret salt
 // to hash the user id (email address) into a hash.
@@ -201,6 +204,10 @@ func (e httpError) Error() string {
 // TODO(salikh): Reconsider error reporting in production deployment.
 func handleError(fn func(http.ResponseWriter, *http.Request) error) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if glog.V(5) {
+			req.ParseForm()
+			glog.V(5).Infof("%s  %q", req.URL, req.Form)
+		}
 		err := fn(w, req)
 		if err != nil {
 			glog.Errorf("%s  %s", req.URL, err.Error())
@@ -469,17 +476,26 @@ li.L9 { background: #eee }
 
 // handleLogin handles Open ID Connect authentication.
 func (s *Server) handleLogin(w http.ResponseWriter, req *http.Request) error {
-	url := s.oauthConfig.AuthCodeURL(s.oauthState)
+	oauthState := uuid.New().String()
+	loginSession, err := s.cookieStore.Get(req, LoginSessionName)
+	if err != nil {
+		return err
+	}
+	loginSession.Options = &sessions.Options{
+		MaxAge:   600,
+		HttpOnly: true,
+		Secure:   s.opts.SecureCookie,
+	}
+	loginSession.Values["oauth_state"] = oauthState
+	loginSession.Save(req, w)
+	url := s.oauthConfig.AuthCodeURL(oauthState)
 	http.Redirect(w, req, url, http.StatusTemporaryRedirect)
 	return nil
 }
 
 // getUserInfo requests user profile by issuing an independent HTTP GET request
 // using the authentication code received by the callback.
-func (s *Server) getUserInfo(state string, code string) ([]byte, error) {
-	if state != s.oauthState {
-		return nil, fmt.Errorf("invalid oauth state")
-	}
+func (s *Server) getUserInfo(code string) ([]byte, error) {
 	token, err := s.oauthConfig.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err)
@@ -511,8 +527,22 @@ type UserProfile struct {
 
 // handleCallback handles the OAuth2 callback.
 func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error {
+	loginSession, err := s.cookieStore.Get(req, LoginSessionName)
+	if err != nil {
+		return err
+	}
+	oauthState := loginSession.Values["oauth_state"]
 	req.ParseForm()
-	b, err := s.getUserInfo(req.FormValue("state"), req.FormValue("code"))
+	state := req.FormValue("state")
+	if state != oauthState {
+		return fmt.Errorf("invalid oauth state")
+	}
+	loginSession.Options.MaxAge = -1
+	err = loginSession.Save(req, w)
+	if err != nil {
+		return err
+	}
+	b, err := s.getUserInfo(req.FormValue("code"))
 	if err != nil {
 		return err
 	}
@@ -528,6 +558,7 @@ func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error 
 	if len(s.opts.AllowedUsers) > 0 && !s.opts.AllowedUsers[profile.Email] {
 		session.Options.MaxAge = -1
 		delete(session.Values, "hash")
+		delete(session.Values, "email")
 		session.Save(req, w)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusForbidden)
@@ -543,29 +574,121 @@ func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error 
 	}
 	// Instead of email, we store a salted cryptographic hash (pseudonymous id).
 	session.Values["hash"] = s.hashId(profile.Email)
+	session.Values["email"] = profile.Email
 	session.Save(req, w)
-	http.Redirect(w, req, "/profile", http.StatusTemporaryRedirect)
+	http.Redirect(w, req, "/token", http.StatusTemporaryRedirect)
 	return nil
 }
 
-// handleProfile reports the current authentication data. This is mostly
-// useful for ad-hoc testing of authentication.
+func tokenData(header map[string]string, payload map[string]string) ([]byte, error) {
+	hb, err := json.Marshal(header)
+	if err != nil {
+		return nil, fmt.Errorf("error serializing header JSON: %s", err)
+	}
+	hb64 := base64.RawURLEncoding.EncodeToString(hb)
+	pb, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("error serializing payload JSON: %s", err)
+	}
+	pb64 := base64.RawURLEncoding.EncodeToString(pb)
+	return []byte(hb64 + "." + pb64), nil
+}
+
+func (s *Server) GetJWT(email string) (string, error) {
+	rsaKey := s.opts.PrivateKey
+	opts := &jose.SignerOptions{}
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: rsaKey}, opts.WithType("JWT"))
+	if err != nil {
+		return "", fmt.Errorf("error creating JWT signer: %s", err)
+	}
+	payload := map[string]string{
+		"sub": email,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("error serializing payload JSON: %s", err)
+	}
+	object, err := signer.Sign(data)
+	if err != nil {
+		return "", fmt.Errorf("error signing JWT token: %s", err)
+	}
+	token, err := object.CompactSerialize()
+	if err != nil {
+		return "", fmt.Errorf("error serializing JWT signature: %s", err)
+	}
+	return token, nil
+}
+
+// handleProfile shows the authentication state.
 func (s *Server) handleProfile(w http.ResponseWriter, req *http.Request) error {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if s.opts.UseOpenID {
+		session, err := s.cookieStore.Get(req, UserSessionName)
+		if err != nil {
+			return err
+		}
+		if email, ok := session.Values["email"]; ok {
+			fmt.Fprintf(w, `session["email"]: %s<br>`, email)
+		}
+		if userHash, ok := session.Values["hash"]; ok {
+			fmt.Fprintf(w, `session["hash"]: %s<br>`, userHash)
+		}
+		userHash, err := s.authenticate(w, req)
+		if err != nil {
+			fmt.Fprintf(w, `Not authenticated: %s.<br><a href='/login>Log in</a>.`, err)
+			return nil
+		}
+		fmt.Fprintf(w, `Authenticated<br>User hash: %s.<br><a href='/logout>Log out</a>.`, userHash)
+		return nil
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, "Authentication disabled")
+	return nil
+}
+
+// handleToken shows the JWT token.
+func (s *Server) handleToken(w http.ResponseWriter, req *http.Request) error {
 	session, err := s.cookieStore.Get(req, UserSessionName)
 	if err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	hash, ok := session.Values["hash"]
+	email, ok := session.Values["email"]
+	fill := &tokenFill{}
 	if ok {
-		fmt.Fprintf(w, "Logged in as %s. <a href='/logout'>Log out link</a>.", hash)
-		fmt.Fprintf(w, "<p>Click here to <a href='/'>upload</a> a notebook manually, or "+
-			"<strong>You can close this window and retry upload from the Jupyter notebook.</strong>")
-	} else {
-		fmt.Fprintf(w, "Logged out. <a href='/login'>Log in</a>.")
+		emailStr, ok := email.(string)
+		if !ok {
+			return fmt.Errorf("unexpected session value type %T", email)
+		}
+		fill.Email = emailStr
+		if s.opts.UseJWT {
+			token, err := s.GetJWT(emailStr)
+			if err != nil {
+				return err
+			}
+			fill.Token = token
+		}
 	}
-	return nil
+	return tokenTmpl.Execute(w, fill)
 }
+
+type tokenFill struct {
+	Email string
+	Token string
+}
+
+var tokenTmpl = template.Must(template.New("tokenTmpl").Parse(`
+{{if .Email}}
+<p style='font-size: 24pt; text-align: center'>Logged in as {{.Email}}.<p>
+{{if .Token}}
+<p><b>Please copy this JWT token to the Colab notebook</b></p>
+<textarea id='token' rows='5' cols='120' onclick='document.getElementById("token").select(); document.execCommand("copy");'>{{.Token}}</textarea>
+<p><button id='copy-text' onclick='document.getElementById("token").select(); document.execCommand("copy");'>Copy</button></p>
+{{end}}
+{{else}}
+Logged out. <a href='/login'>Log in</a>.
+{{end}}
+`))
 
 // handleLogout clears the user cookie.
 func (s *Server) handleLogout(w http.ResponseWriter, req *http.Request) error {
@@ -575,14 +698,41 @@ func (s *Server) handleLogout(w http.ResponseWriter, req *http.Request) error {
 	}
 	session.Options.MaxAge = -1
 	delete(session.Values, "hash")
+	delete(session.Values, "email")
 	session.Save(req, w)
-	http.Redirect(w, req, "/profile", http.StatusTemporaryRedirect)
+	http.Redirect(w, req, "/token", http.StatusTemporaryRedirect)
 	return nil
 }
 
 // authenticate handles the authentication. If authentication or authorization
 // was not successful, it returns an error. Normally it returns the user hash.
 func (s *Server) authenticate(w http.ResponseWriter, req *http.Request) (string, error) {
+	if s.opts.UseJWT {
+		// Check Authorization header.
+		for _, val := range req.Header["Authorization"] {
+			if strings.HasPrefix(val, "Bearer ") {
+				token := val[len("Bearer "):]
+				object, err := jose.ParseSigned(token)
+				if err != nil {
+					return "", fmt.Errorf("error parsing JWT token: %s", err)
+				}
+				pb, err := object.Verify(&s.opts.PrivateKey.PublicKey)
+				if err != nil {
+					return "", fmt.Errorf("error verifying JWT token: %s", err)
+				}
+				payload := make(map[string]string)
+				err = json.Unmarshal(pb, &payload)
+				if err != nil {
+					return "", fmt.Errorf("error parsing JWT payload: %s", err)
+				}
+				email, ok := payload["sub"]
+				if !ok {
+					return "", fmt.Errorf("JWT token does not have sub: %s", string(pb))
+				}
+				return s.hashId(email), nil
+			}
+		}
+	}
 	session, err := s.cookieStore.Get(req, UserSessionName)
 	if err != nil {
 		session.Options.MaxAge = -1
