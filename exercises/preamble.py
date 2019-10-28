@@ -3,7 +3,7 @@
 
 #@title Submission snippet
 #@markdown Please [login to server](https://combined-v6gvzmyosa-an.a.run.app/login) to get a JWT token and paste it here.
-SERVER_URL = 'https://combined-v6gvzmyosa-an.a.run.app'
+SERVER_URL = 'https://combined-wi536cjdka-an.a.run.app'
 JWT_TOKEN = "" #@param
 
 import json
@@ -21,8 +21,10 @@ def Submit(exercise_id=None):
     "get_ipynb", request="", timeout_sec=120)["ipynb"]
   ids = []
   for cell in notebook['cells']:
+        if 'metadata' not in cell:
+          continue
         m = cell['metadata']
-        if m:
+        if m and 'exercise_id' in m:
             cell_id = m['exercise_id']
             if cell_id:
                 ids.append(cell_id)
