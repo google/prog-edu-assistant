@@ -609,7 +609,7 @@ func (ag *Autograder) RunInlineTest(dir, filename, submissionFilename string) (m
 			outcome["passed"] = false
 		}
 		if status == "ERROR" {
-			message = "Internal test error: " + message
+			message = "Test error: " + message
 		}
 		if message != "" {
 			if old, ok := outcome["error"]; ok {
