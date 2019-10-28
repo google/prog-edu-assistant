@@ -2,3 +2,4 @@
 /service-account.json
 /certs
 /ENV
+/cloud-run.env
