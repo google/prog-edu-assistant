@@ -230,6 +230,13 @@ func (ag *Autograder) Grade(notebookBytes []byte) ([]byte, error) {
 				reflect.TypeOf(v))
 		}
 	}
+	var requestedExerciseID string
+	if v, ok := metadata["requested_exercise_id"]; ok {
+		val, ok := v.(string)
+		if ok {
+			requestedExerciseID = val
+		}
+	}
 	dir := filepath.Join(ag.Dir, assignmentID)
 	glog.V(3).Infof("assignment dir: %s", dir)
 	fs, err := os.Stat(dir)
@@ -267,6 +274,7 @@ func (ag *Autograder) Grade(notebookBytes []byte) ([]byte, error) {
 		}()
 	}
 	result := make(map[string]interface{})
+	exerciseFound := false
 	for _, cell := range n.Cells {
 		if cell.Metadata == nil {
 			continue
@@ -281,6 +289,11 @@ func (ag *Autograder) Grade(notebookBytes []byte) ([]byte, error) {
 			return nil, idErrorf(submissionID, "exercise_id is not a string but %s",
 				reflect.TypeOf(v))
 		}
+		if requestedExerciseID != "" && requestedExerciseID != exerciseID {
+			// Skip other exercises if requested a specific one.
+			continue
+		}
+		exerciseFound = true
 		exerciseDir := filepath.Join(dir, exerciseID)
 		fs, err = os.Stat(exerciseDir)
 		if err != nil {
@@ -297,6 +310,9 @@ func (ag *Autograder) Grade(notebookBytes []byte) ([]byte, error) {
 			return nil, idErrorf(submissionID, "error grading exercise %s: %s", exerciseID, err)
 		}
 		result[exerciseID] = outcome
+	}
+	if !exerciseFound {
+		result["error"] = fmt.Sprintf("no exercises found. requested_exercise_id=%q", requestedExerciseID)
 	}
 	result["assignment_id"] = assignmentID
 	result["user_hash"] = userHash

@@ -793,6 +793,8 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("error reading upload: %s", err)
 	}
+	// If exercise_id is specified in the request, then we need to grade only that exercise.
+	requestedExerciseID := req.FormValue("exercise_id")
 	// TODO(salikh): Add user identifier to the file name.
 	submissionID := uuid.New().String()
 	submissionFilename := filepath.Join(s.opts.UploadDir, submissionID+".ipynb")
@@ -819,6 +821,9 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 	metadata["submission_id"] = submissionID
 	metadata["user_hash"] = userHash
 	metadata["timestamp"] = time.Now().Unix()
+	if requestedExerciseID != "" {
+		metadata["requested_exercise_id"] = requestedExerciseID
+	}
 	b, err = json.Marshal(data)
 	if err != nil {
 		return err
