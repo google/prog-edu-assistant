@@ -3,3 +3,4 @@
 /certs
 /ENV
 /cloud-run.env
+/*.env

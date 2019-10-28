@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 DIR="$(pwd -P)"
 source ../venv/bin/activate
 
-set -ex
+set -e
 
 # Start Jupyter notebook server
 pgrep jupyter &>/dev/null || jupyter notebook &
@@ -26,8 +26,17 @@ mkdir -p "$DIR/tmp/uploads" "$DIR/tmp/scratch"
 # Stop the processes we started on Ctrl+C
 trap 'kill %1' SIGINT
 
-. ../docker/secret.env
-export COOKIE_AUTH_KEY COOKIE_ENCRYPT_KEY CLIENT_ID CLIENT_SECRET
+if [ ! -f "$DIR/deploy/local.env" ]; then
+  echo "Please copy deploy/secret.env.template " >&2
+  echo "to deploy/local.env and customize it." >&2
+  exit 1
+fi
+
+. "$DIR/deploy/local.env"
+export COOKIE_AUTH_KEY COOKIE_ENCRYPT_KEY CLIENT_ID CLIENT_SECRET JWT_KEY
+
+# Create directories.
+mkdir -p "$DIR/tmp/scratch" "$DIR/tmp/uploads"
 
 # Start the upload server
 go run cmd/uploadserver/main.go \
