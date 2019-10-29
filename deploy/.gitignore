@@ -4,3 +4,4 @@
 /ENV
 /cloud-run.env
 /*.env
+/*service-account.json

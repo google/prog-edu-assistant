@@ -2,7 +2,7 @@
 # github.com/google/prog-edu-assistant/student/preamble.py.
 
 #@title Submission snippet
-#@markdown Please [login to server](https://combined-v6gvzmyosa-an.a.run.app/login) to get a JWT token and paste it here.
+#@markdown Please [login to server](https://combined-wi536cjdka-an.a.run.app/login) to get a JWT token and paste it here.
 SERVER_URL = 'https://combined-wi536cjdka-an.a.run.app'
 JWT_TOKEN = "" #@param
 
