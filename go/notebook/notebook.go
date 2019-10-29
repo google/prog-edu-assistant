@@ -246,6 +246,7 @@ var (
 	assignmentMetadataRegex     = regexp.MustCompile("(?m)^[ \t]*# ASSIGNMENT METADATA")
 	exerciseMetadataRegex       = regexp.MustCompile("(?m)^[ \t]*# EXERCISE METADATA")
 	globalContextRegex          = regexp.MustCompile("(?ms)^[ \t]*# *GLOBAL CONTEXT[ \t]*[\n]*")
+	exerciseContextRegex        = regexp.MustCompile("(?ms)^[ \t]*# *EXERCISE CONTEXT[ \t]*[\n]*")
 	languageMetadataRegex       = regexp.MustCompile("\\*\\*lang:([a-z]{2})\\*\\*")
 	tripleBacktickedRegex       = regexp.MustCompile("(?ms)^```([^`]|`[^`]|``[^`])*^```")
 	testMarkerRegex             = regexp.MustCompile("(?ms)^[ \t]*# TEST[^\n]*[\n]*")
@@ -561,6 +562,10 @@ func (n *Notebook) ToStudent(lang Language) (*Notebook, error) {
 			// Skip the %%inline test cell.
 			return nil, nil
 		}
+		// Skip the # EXERCISE CONTEXT cells.
+		if m := exerciseContextRegex.FindStringIndex(source); m != nil {
+			return nil, nil
+		}
 		if m := solutionMagicRegex.FindStringIndex(source); m != nil {
 			clean, err := CleanForStudent(cell, assignmentMetadata, exerciseMetadata, lang)
 			if err != nil {
@@ -701,7 +706,10 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 			// We do not need to emit non-code cells.
 			return nil, nil
 		}
-		if m := inlineTestRegex.FindStringSubmatchIndex(source); m != nil {
+		if m := studentTestRegex.FindStringSubmatchIndex(source); m != nil {
+			// We do not pass student tests to autograder tests.
+			return nil, nil
+		} else if m := inlineTestRegex.FindStringSubmatchIndex(source); m != nil {
 			// Extract the inline test name.
 			name := source[m[2]:m[3]]
 			// Peel off the magic string.
@@ -722,6 +730,17 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 			var parts []string
 			// Create an inline test.
 			for _, c := range globalContext {
+				// Create a clean student version of a code cell.
+				clean, err := CleanForStudent(c, assignmentMetadata, exerciseMetadata, AnyLanguage)
+				if err != nil {
+					return nil, err
+				}
+				if clean != nil && strings.Trim(clean.Source, " \t\n") != "" {
+					// Accumulate code.
+					parts = append(parts, clean.Source)
+				}
+			}
+			for _, c := range exerciseContext {
 				// Create a clean student version of a code cell.
 				clean, err := CleanForStudent(c, assignmentMetadata, exerciseMetadata, AnyLanguage)
 				if err != nil {
