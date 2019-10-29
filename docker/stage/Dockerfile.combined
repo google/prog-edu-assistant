@@ -34,7 +34,7 @@ RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --fix-missing 
   && ln -s /usr/bin/pip3 /usr/bin/pip \
   && ln -sf /usr/bin/python3 /usr/bin/python
 RUN pip install --no-cache-dir \
-    six arrow scikit-learn pandas numpy scikit-image Jinja2 pygments plotly_express
+    six arrow scikit-learn pandas numpy scikit-image Jinja2 pygments plotly_express mecab-python3
 
 COPY bin/uploadserver /usr/local/bin/uploadserver
 COPY static /static
