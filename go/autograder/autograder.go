@@ -121,8 +121,14 @@ func (ag *Autograder) CreateScratchDir(exerciseDir, scratchDir string, submissio
 		return fmt.Errorf("error writing to %q: %s", filename, err)
 	}
 	filename = filepath.Join(scratchDir, "submission_source.py")
+	sep := []byte{}
+	if len(submission) > 0 && submission[len(submission)-1] == '"' {
+		// If the submission ends in a quote, combination with triple quote would produce a syntax error,
+		// so append a new line.
+		sep = []byte("\n")
+	}
 	content := bytes.Join([][]byte{[]byte(`source = """`),
-		bytes.ReplaceAll(submission, []byte(`"""`), []byte(`\"\"\"`)), []byte(`"""`)}, nil)
+		bytes.ReplaceAll(submission, []byte(`"""`), []byte(`\"\"\"`)), sep, []byte(`"""`)}, nil)
 	err = ioutil.WriteFile(filename, content, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing to %q: %s", filename, err)
