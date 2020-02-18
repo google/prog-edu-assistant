@@ -5,3 +5,7 @@
 /cloud-run.env
 /*.env
 /*service-account.json
+*.crt
+*.key
+*.privkey
+*.pubkey

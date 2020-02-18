@@ -15,6 +15,8 @@ cd "$(dirname "$0")"
 DIR="$(pwd -P)"
 source ../venv/bin/activate
 
+function @execute() { echo "$@" >&2; "$@"; }
+
 set -e
 
 # Start Jupyter notebook server
@@ -39,7 +41,13 @@ export COOKIE_AUTH_KEY COOKIE_ENCRYPT_KEY CLIENT_ID CLIENT_SECRET JWT_KEY
 mkdir -p "$DIR/tmp/scratch" "$DIR/tmp/uploads"
 
 # Start the upload server
-go run cmd/uploadserver/main.go \
+test -f "$DIR/deploy/localhost.crt" && test -f "$DIR/deploy/localhost.key" || {
+	echo "Could not find localshot cert and key in $DIR/deploy" >&2
+  echo "Please create one with this command:" >&2
+	echo "  openssl req -x509 -newkey rsa:4096 -keyout $DIR/deploy/localhost.key -out $DIR/deploy/localhost.crt -days 365 -subj '/CN=localhost' -nodes" >&2
+	exit 1
+}
+@execute go run cmd/uploadserver/main.go \
   --logtostderr --v=5 \
   --upload_dir="$DIR/tmp/uploads" \
   --allow_cors \
@@ -48,8 +56,11 @@ go run cmd/uploadserver/main.go \
   --grade_locally \
   --autograder_dir="$DIR/tmp/autograder" \
   --scratch_dir="$DIR/tmp/scratch" \
-  --python_path="$(which python)" \
+  --python_path="$(which python3)" \
   --nsjail_path="$(which nsjail)" \
   --disable_cleanup \
   --auto_remove \
-  --use_jwt
+  --use_jwt \
+  --ssl_cert_file $DIR/deploy/localhost.crt \
+  --ssl_key_file $DIR/deploy/localhost.key \
+  --use_https
