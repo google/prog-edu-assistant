@@ -1,7 +1,8 @@
-# Worker
+# Dockerfile.combined
 
-This directory contains a Docker file and source files necessary
-to build a container image of autograder worker.
+This is a Docker file to build a combined image with both
+HTTP server and the autograder, so that grading happen
+synchronously to fit Google Cloud Run execution model.
 
 Note: the autograder scripts are not present in this directory,
 because they are necessarily assignment-dependent and so are
@@ -13,23 +14,20 @@ image of the autograder worker.
 
 ## Architecture
 
-To simplify the initial demo, the autograder worker is decoupled
-from the main system as much as possible. We chose to use RabbitMQ
-as the communication mechanism. The autograder worker is configured
-with just one string that is the spec of the RabbitMQ instance.
+The web server takes upload requests at the endpoint:
 
-Workers read from the "submissions" queue, and assume that each
-submission is a full Jupyter notebook submission, i.e. tries to
-parse all received messages as JSON. If JSON parsing fails, the worker
-will drop the submission.
+    /upload
 
-For the decoded submissions, the worker will detect which assignment
-it corresponds to, extract the submitted code from the notebook
-cell, prepare test directories and run the test suites in each.
-It will then analyze the output of test suite and build the outcome
-vector, and then generate the test report based on the input
-submission and the outcome vector.
+The specific port is provided by Cloud Run runtime via `PORT` environment
+variable. The endpoint accepts form file uploads, and tries to parse them as
+JSON .ipynb files. If JSON parse fails, the server drops the submission. If
+JSON parse succeeds, it decides which assignment the upload is related to by
+looking at notebook metadata (looking for `assignment_id`).
 
-To minimize coupling of worker with the rest of the system, the worker
-uses the same RabbitMQ to post the report on to the queue "reports".
-The report is posted in JSON format, with snippets of HTML inside.
+Then the server extracts the submitted code from the notebook
+assignment cells, prepares test directories and runs the test suites in each.
+It then analyzes the output of test suite and builds the outcome
+JSON object, and then generate the test report.
+
+The server works in a synchronous manner to enable autoscaling
+by Cloud Run, so the requests typically take a few seconds to complete.

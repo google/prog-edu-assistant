@@ -34,6 +34,4 @@ fi
 @execute bazel run //go/cmd/worker:docker -- --norun
 
 @execute cd "$DIR"
-@execute docker build stage -f stage/Dockerfile.server -t server
-@execute docker build stage -f stage/Dockerfile.worker -t worker
 @execute docker build stage -f stage/Dockerfile.combined -t combined

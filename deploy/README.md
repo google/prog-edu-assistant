@@ -1,47 +1,36 @@
 # Deployment instructions
 
-There are two ways to deploy the autograder backend:
-
-* With Docker Compose single-host deployment
-* With Google Cloud Run
-
-# Docker Compose deployment on Google Compute Engine (GCE)
+The recommended way to deploy autograder backend is Google Cloud Run.
 
 ## Prerequisites
 
 One needs a few things set up in order to have an instance of the autochecking
 server:
 
-*   A domain name that is under your control. It should point to the static IP
-    address allocated for the GCE instance. The below code uses `$GCE_HOST` to
-    refer to this name.
+*   To configure a system properly, you need to know the URL of the Cloud Run
+    instance. The easiest way is to deploy first image with incomplete
+    configuration (the autograder will not work), then copy the service URL
+    from Cloud Console page of the service. Since the URL is stable, you can
+    now complete the configuration and redeploy the service.
+    The below instruction uses `$GCE_HOST` to refer to this name.
 
 *   An OAuth client ID pair (client ID and client Secret), obtainable from
     http://console.cloud.google.com under the section APIs & Services,
     subsection Credentials.
 
-    The client ID must have the above domain name in the list of authorized
-    Javascript origins,j and should have the URL of the form
-    `https://$GCE_HOST/callback` in the list of authorized redirect URLs. It is
-    also helpful to include `http://localhost:8000` and
+    The client ID must have `$GCE_HOST` in the list of authorized
+    Javascript origins, and should have the URL of the form
+    `https://$GCE_HOST/callback` in the list of authorized redirect URLs. It
+    is also helpful to include `http://localhost:8000` and
     `http://localhost:8000/callback` respectively for local testing.
 
     The client ID and client secret should be stored in the file
-    `deploy/secret.env`. The the example `deploy/secret.env.template` for the
-    format. The environment file should also have `SERVER_URL` to be set to the
-    `https://$GCE_HOST`, using the domain name chosen above.
+    `deploy/cloud-run.env`. The the example `deploy/cloud-run.env.template`
+    for the format. The environment file should also have `SERVER_URL` to be
+    set to the `https://$GCE_HOST`, using the domain name obtained above.
 
-*   An SSL cert and private key pair issued for OU equal to the chosen domain
-    name above. The below instructions assume that they are copied into the
-    workspace at `deploy/certs/privkey1.pem` and `deploy/certs/cert1.pem`. The
-    easiest way to get a certificate is from Letsencrypt.
-
-*   A service account key in JSON format should be downloaded from GCP console
-    in advance and put into `deploy/service-account.json`. The corresponding GCP
-    project name is referred as $GCP_PROJECT below.
-
-WARNING: You should never submit secrets, certificats or private keys to source
-code repository.
+WARNING: You should never submit secrets, certificats or private keys to
+source code repository.
 
 ## Initial gcloud authentication (on a dev machine)
 
@@ -52,75 +41,33 @@ You need to install recent version of Google Cloud SDK first.
     # Choose the project name
     gcloud config set project ${GCP_PROJECT?}
 
+Your project unique identifier is referred with `$GCP_PROJECT` below.
+
 ## Build and push images to GCR (on a dev machine)
 
-You only need to run this step if you have made changes to the source code base.
+You only need to run this step if you have made changes to the source code
+base.
 
     (cd docker && ./build.sh && \
-     docker tag server asia.gcr.io/${GCP_PROJECT?}/server && \
-     docker tag worker asia.gcr.io/${GCP_PROJECT?}/worker && \
-     docker push asia.gcr.io/${GCP_PROJECT?}/server && \
-     docker push asia.gcr.io/${GCP_PROJECT?}/worker)
+     docker tag server asia.gcr.io/${GCP_PROJECT?}/combined && \
+     docker push asia.gcr.io/${GCP_PROJECT?}/combined)
 
-## Create an instance (on a dev machine)
+Note that the file `deploy-cloud-run.sh` contains these and below commands
+and can be used for convenience.
 
-    gcloud compute instances create prog-edu-assistant \
-      --zone=asia-northeast1-b \
-      --machine-type=n1-standard-1 \
-      --image-family=cos-stable \
-      --image-project=cos-cloud \
-      --tags=http-server,https-server
+## Run a test instance (on a dev machine)
 
-    # See the IP address of the instance:
-    gcloud compute instances list
+There are two shell scripts provided for starting server locally
+for quick debugging:
 
-Note: secret.env has two items that depend on the stable server address:
+  * `start-server-no-queue.sh` starts the binary using `go` command.
+    It expects the autograder directory to be prepared in `tmp/autograder`.
+    You can use the script `build-student.sh` to prepare the autograder
+    directory. It expects the environment to be configured in
+    `deploy/local.env`.
 
-(1) `SERVER_URL` should contain the URL of the server, starting with http:// and
-having the port, but without the final slash. Obviously the stable URL of the
-server should resolve to the actual IP address of the instance. It is a good
-idea to configure instance with a static IP address.
-
-(2) The `CLIENT_ID` and `CLIENT_SECRET` used for OpenID Connect authentication
-must list the domain of the server as an authorized domain, as well as have the
-URL http://server:port/upload in the authorized redirect URI list.
-
-The file `service-account.json` should be obtained from GCP console as a service
-account key. You may need to edit docker-compose.yml file for your needs (e.g.
-CORS origin or the names of cert and private key files).
-
-    # Copy the deployment files to the instance:
-    scp -r deploy/{certs,docker-compose.yml,secret.env,service-account.json} \
-      $GCE_HOST:
-
-## Start the autochecker server (on a GCE instance)
-
-Start with logging to console:
-
-    ssh $GCE_HOST
-    mkdir -p logs
-    cat service-account.json | docker login -u _json_key --password-stdin https://asia.gcr.io
-    docker pull asia.gcr.io/${GCP_PROJECT?}/worker
-    docker pull asia.gcr.io/${GCP_PROJECT?}/server
-    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $PWD:$PWD -w=$PWD --entrypoint=sh docker/compose:1.24.0 -c "cat service-account.json | docker login -u _json_key --password-stdin https://asia.gcr.io && export GCP_PROJECT=${GCP_PROJECT?} && docker-compose up --scale worker=4"
-
-Or start and detach (on a dev machine):
-
-    ssh $GCE_HOST "mkdir -p logs && cat service-account.json | docker login -u _json_key --password-stdin https://asia.gcr.io && docker pull asia.gcr.io/${GCP_PROJECT?}/worker && docker pull asia.gcr.io/${GCP_PROJECT?}/server && docker run -d --rm -v /var/run/docker.sock:/var/run/docker.sock -v \$PWD:\$PWD -w=\$PWD --entrypoint=sh docker/compose:1.24.0 -c 'cat service-account.json | docker login -u _json_key --password-stdin https://asia.gcr.io && export GCP_PROJECT=${GCP_PROJECT?} && docker-compose up --scale worker=4'"
-
-## Inspect running services on the GCE instance
-
-    ssh $GCE_HOST
-    docker ps
-
-## Kill all services (without taking the GCE instance down)
-
-    ssh $GCE_HOST
-    docker ps -q | xargs -n1 docker kill
-
-## Delete the instance after it is no longer needed (on a dev machine)
-
-    gcloud compute instances delete prog-edu-assistant
+  * `start-local-combined.sh` starts the docker container that is built
+    by `docker/build.sh`.
 
 # Google Cloud Run deployment
 
@@ -135,17 +82,26 @@ Here is an example of the deploy command:
     docker/build.sh && \
     docker tag combined asia.gcr.io/${GCP_PROJECT?}/combined && \
     docker push asia.gcr.io/${GCP_PROJECT?}/combined && \
-    gcloud beta run deploy \
+    @execute gcloud run deploy \
       combined \
       --image asia.gcr.io/${GCP_PROJECT?}/combined \
       --allow-unauthenticated \
       --platform=managed \
       --region asia-northeast1 \
-      --set-env-vars=GCP_PROJECT=${GCP_PROJECT?},\
-    LOG_BUCKET=nlp-lecture-20191025-logs,\
-    SERVER_URL=https://combined-v6gvzmyosa-an.a.run.app,\
-    HASH_SALT=abcde,\
-    COOKIE_AUTH_KEY=0123456789abcdef,\
-    COOKIE_ENCRYPT_KEY=1234567890abcdef
+      --set-env-vars=GCP_PROJECT="${GCP_PROJECT?}",\
+    CLIENT_SECRET="$CLIENT_SECRET",\
+    CLIENT_ID="$CLIENT_ID",\
+    LOG_BUCKET="$LOG_BUCKET",\
+    SERVER_URL="$SERVER_URL",\
+    HASH_SALT="$HASH_SALT",\
+    COOKIE_AUTH_KEY="$COOKIE_AUTH_KEY",\
+    COOKIE_ENCRYPT_KEY="$COOKIE_ENCRYPT_KEY",\
+    JWT_KEY="$JWT_KEY"
 
-TODO(salikh): Implement authentication with JWT.
+The environment variables normally should be stored in the file
+`deploy/cloud-run.env`, which should not be submitted to Git.
+Copy `deploy/cloud-run.env.template` and edit to fill the details.
+Note that the file `deploy-cloud-run.sh` contains these commands
+and can be used for convenience.
+
+TODO(salikh): Provide an example command for generating the JWT key.

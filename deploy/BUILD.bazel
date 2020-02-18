@@ -4,9 +4,7 @@ filegroup(
     srcs = [
         "BUILD.bazel",
         "README.md",
-        "docker-compose.yml",
-        "secret.env.template",
-        "service-account.json.sample",
+        "cloud-run.env.template",
     ],
     visibility = ["//visibility:public"],
 )

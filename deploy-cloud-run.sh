@@ -17,7 +17,7 @@ source "$DIR/deploy/cloud-run.env"
 @execute docker tag combined asia.gcr.io/${GCP_PROJECT?}/combined
 @execute docker push asia.gcr.io/${GCP_PROJECT?}/combined
 
-@execute gcloud beta run deploy \
+@execute gcloud run deploy \
   combined \
   --image asia.gcr.io/${GCP_PROJECT?}/combined \
   --allow-unauthenticated \
