@@ -8,8 +8,8 @@ set -ve
 
 rm -rf tmp/
 bazel build ...
-tar xvf bazel-genfiles/exercises/tmp-autograder_tar.tar
-tar xvf bazel-genfiles/exercises/tmp-student_notebooks_tar.tar
+tar xvf bazel-bin/exercises/tmp-autograder_tar.tar
+tar xvf bazel-bin/exercises/tmp-student_notebooks_tar.tar
 
 cp -v student/* tmp/student/
 cp -rv nbextensions tmp/student/

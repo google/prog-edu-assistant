@@ -19,7 +19,7 @@ set -e
 @execute cd "$DIR/../"
 @execute bazel build ...
 @execute rm -rf "$STAGE/autograder"
-@execute tar xvf bazel-genfiles/exercises/autograder_image-layer.tar -C "$STAGE"
+@execute tar xvf bazel-bin/exercises/autograder_image-layer.tar -C "$STAGE"
 @execute rm -rf "$STAGE/bin" && mkdir "$STAGE/bin"
 @execute cp "$DIR/nsjail.patch" "$STAGE/"
 if [ -f ../nsjail/nsjail ]; then
