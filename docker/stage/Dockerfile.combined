@@ -1,6 +1,6 @@
+# Start the dev image to build nsjail.
 FROM debian:testing
 RUN apt-get -y update && apt-get -y upgrade
-
 # Install the certificates
 RUN apt install -y ca-certificates && update-ca-certificates
 
@@ -23,12 +23,16 @@ RUN apt-get -y install \
 # Build nsjail
 RUN git clone https://github.com/google/nsjail.git /root/nsjail
 COPY nsjail.patch /tmp/nsjail.patch
-RUN cd /root/nsjail && patch -p0 < /tmp/nsjail.patch && make && mv /root/nsjail/nsjail /usr/local/bin
-#COPY bin/nsjail /usr/local/bin/nsjail
+RUN cd /root/nsjail && patch -p0 < /tmp/nsjail.patch && make
 
+# Start the prod image to run Python.
+FROM debian:testing
+RUN apt-get -y update && apt-get -y upgrade && touch /tmp/force-rebuild
+# Install the certificates
+RUN apt install -y ca-certificates && update-ca-certificates
 # Install the python environment (and nsjail runtime dependencies).
 # TODO(salikh): Move this to a separate stage.
-RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --fix-missing \
+RUN apt-get install -y --fix-missing \
     python3 python3-dev python3-scipy python3-pip python-virtualenv \
     libprotobuf17  libnl-route-3-200 \
     freetype* bash mecab libmecab-dev swig \
@@ -37,6 +41,9 @@ RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --fix-missing 
 RUN pip install --no-cache-dir \
     six arrow scikit-learn pandas numpy scikit-image Jinja2 pygments plotly_express mecab-python3
 
+# Copy the nsjail binary from the dev image 0.
+COPY --from=0  /root/nsjail/nsjail /usr/local/bin/nsjail
+#COPY bin/nsjail /usr/local/bin/nsjail
 COPY bin/uploadserver /usr/local/bin/uploadserver
 COPY static /static
 COPY autograder /autograder
