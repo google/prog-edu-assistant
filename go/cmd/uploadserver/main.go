@@ -207,6 +207,7 @@ func run() error {
 	if os.Getenv("SERVER_URL") != "" {
 		// Allow override from the environment.
 		serverURL = os.Getenv("SERVER_URL")
+		glog.Info("Environment provided override SERVER_URL=%s", serverURL)
 	}
 	var rsaKey *rsa.PrivateKey
 	if *useJWT {

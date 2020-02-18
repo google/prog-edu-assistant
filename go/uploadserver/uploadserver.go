@@ -487,7 +487,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, req *http.Request) error {
 		Secure:   s.opts.SecureCookie,
 	}
 	loginSession.Values["oauth_state"] = oauthState
-	loginSession.Save(req, w)
+	err = loginSession.Save(req, w)
+	if err != nil {
+		return fmt.Errorf("error saving session: %s", err)
+	}
 	url := s.oauthConfig.AuthCodeURL(oauthState)
 	http.Redirect(w, req, url, http.StatusTemporaryRedirect)
 	return nil
@@ -540,7 +543,7 @@ func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error 
 	loginSession.Options.MaxAge = -1
 	err = loginSession.Save(req, w)
 	if err != nil {
-		return err
+		return fmt.Errorf("error saving session: %s", err)
 	}
 	b, err := s.getUserInfo(req.FormValue("code"))
 	if err != nil {
@@ -559,7 +562,10 @@ func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error 
 		session.Options.MaxAge = -1
 		delete(session.Values, "hash")
 		delete(session.Values, "email")
-		session.Save(req, w)
+		err = session.Save(req, w)
+		if err != nil {
+			return fmt.Errorf("error saving session: %s", err)
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte(fmt.Sprintf("<title>Forbidden</title>User %s is not authorized.<br>"+
@@ -571,11 +577,15 @@ func (s *Server) handleCallback(w http.ResponseWriter, req *http.Request) error 
 		MaxAge:   3600,
 		HttpOnly: true,
 		Secure:   s.opts.SecureCookie,
+		SameSite: http.SameSiteNoneMode,
 	}
 	// Instead of email, we store a salted cryptographic hash (pseudonymous id).
 	session.Values["hash"] = s.hashId(profile.Email)
 	session.Values["email"] = profile.Email
-	session.Save(req, w)
+	err = session.Save(req, w)
+	if err != nil {
+		return fmt.Errorf("error saving session: %s", err)
+	}
 	http.Redirect(w, req, "/token", http.StatusTemporaryRedirect)
 	return nil
 }
@@ -692,15 +702,13 @@ Logged out. <a href='/login'>Log in</a>.
 
 // handleLogout clears the user cookie.
 func (s *Server) handleLogout(w http.ResponseWriter, req *http.Request) error {
-	session, err := s.cookieStore.Get(req, UserSessionName)
-	if err != nil {
-		return err
-	}
+	// Intentionally ignore errors that may be caused by the stale session.
+	session, _ := s.cookieStore.Get(req, UserSessionName)
 	session.Options.MaxAge = -1
 	delete(session.Values, "hash")
 	delete(session.Values, "email")
-	session.Save(req, w)
-	http.Redirect(w, req, "/token", http.StatusTemporaryRedirect)
+	_ = session.Save(req, w)
+	fmt.Fprintf(w, `<!DOCTYPE html><a href='/login'>Log in</a>`)
 	return nil
 }
 
