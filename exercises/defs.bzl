@@ -1,5 +1,5 @@
 # TODO(salikh): Implement the automatic tar rules too
-def assignment_notebook(
+def assignment_notebook_macro(
 	name,
 	srcs,
 	language = None,

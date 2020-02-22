@@ -1,36 +1,36 @@
-load("//exercises:defs.bzl", "assignment_notebook")
+load("//exercises:defs.bzl", "assignment_notebook_macro")
 
 exports_files(["preamble.py"])
 
-assignment_notebook(
+assignment_notebook_macro(
     name = "dataframe-pre1-ja",
     srcs = ["dataframe-pre1-master.ipynb"],
     language = "ja",
 )
 
-assignment_notebook(
+assignment_notebook_macro(
     name = "dataframe-pre2-ja",
     srcs = ["dataframe-pre2-master.ipynb"],
     language = "ja",
 )
 
-assignment_notebook(
+assignment_notebook_macro(
     name = "dataframe-pre3-ja",
     srcs = ["dataframe-pre3-master.ipynb"],
     language = "ja",
 )
 
-assignment_notebook(
+assignment_notebook_macro(
     name = "helloworld-en",
     srcs = ["helloworld-en-master.ipynb"],
 )
 
-assignment_notebook(
+assignment_notebook_macro(
     name = "oop-en",
     srcs = ["oop-en-master.ipynb"],
 )
 
-assignment_notebook(
+assignment_notebook_macro(
     name = "functional-ja",
     srcs = ["functional-master.ipynb"],
     language = "ja",
@@ -53,7 +53,7 @@ genrule(
     ],
 )
 
-assignment_notebook(
+assignment_notebook_macro(
     name = "nlp-exercise",
     srcs = ["nlp-exercise-master.ipynb"],
 )
