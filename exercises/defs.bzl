@@ -61,9 +61,22 @@ def _assignment_notebook_impl(ctx):
       inputs = inputs,
       outputs = [out],
       tools = [ctx.executable._assign],
-      progress_message = "Running %s" % ctx.executable._assign.path,
+      progress_message = "Generating %s" % out.path,
       command = ctx.executable._assign.path + " --command=student --input='" + ctx.file.src.path + "'" + " --output='" + out.path + "'" + language_opt + preamble_opt,
     )
+  
+  # TODO(salikh): Consider if we need to generate language-specific
+  # autograder directories.
+  autograder_dir = ctx.label.name + '-autograder'
+  autograder_out = ctx.actions.declare_directory(autograder_dir)
+  outs.append(autograder_out)
+  ctx.actions.run_shell(
+      inputs = [ctx.file.src],
+      outputs = [autograder_out],
+      tools = [ctx.executable._assign],
+      progress_message = "Generating %s" % autograder_out.path,
+      command = ctx.executable._assign.path + " --command=autograder --input='" + ctx.file.src.path + "'" + " --output='" + autograder_out.path + "'",
+  )
   return [DefaultInfo(files = depset(outs))]
 
 # Defines a rule for student notebook and autograder
