@@ -38,6 +38,34 @@ There are two more necessary pieces to install:
 *   Jupyter notebook extension for submitting student notebooks, see
     [../nbextensions/upload_it/README.md]
 
+# A template for external integration
+
+This directory contains a skeleton setup for integration
+of prog-edu-assistant to an external project.
+
+How to use:
+
+1. Copy the contents of this directory (.ipynb files) into
+   an new empty project.
+
+2. Rename `WORKSPACE.ext` to `WORKSPACE`, and rename `BUILD.ext` to `BUILD.bazel` (overwriting the existing file).
+
+2. Run Bazel build to verify that the build setup works.
+
+   ```shell
+   bazel build ...
+   # If setup works, the following file should be successfully generated.
+   ls -l bazel-bin/helloworld-en-student.ipynb
+   ```
+
+3. Add your assignment notebooks (`.ipynb` files) and add build rules for
+   them in `BUILD.bazel`, following the existing example.
+
+4. Replace this `README.md` contents with the description of your project.
+
+TODO(salikh): Implement generation of the autograding backend image.
+TODO(salikh): Add local server and Cloud Run deployment instructions here.
+
 ## How to author a new assignment
 
 1. Create a new Python 3 notebook in Jupyter.
