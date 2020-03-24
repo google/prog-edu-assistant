@@ -1,4 +1,5 @@
-load("@prog_edu_assistant//exercises:defs.bzl", "assignment_notebook")
+load("@prog_edu_assistant//exercises:defs.bzl",
+     "assignment_notebook", "autograder_tar")
 
 assignment_notebook(
     name = "helloworld-en",
@@ -10,4 +11,12 @@ assignment_notebook(
     src = "functional-master.ipynb",
     languages = ["en", "ja"],
     preamble = "preamble.py",
+)
+
+autograder_tar(
+    name = "autograder_tar",
+    deps = [
+	":helloworld-en",
+	":functional",
+    ],
 )

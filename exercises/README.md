@@ -56,6 +56,7 @@ How to use:
    bazel build ...
    # If setup works, the following file should be successfully generated.
    ls -l bazel-bin/helloworld-en-student.ipynb
+   tar tfi bazel-bin/autograder_tar.tar
    ```
 
 3. Add your assignment notebooks (`.ipynb` files) and add build rules for
@@ -147,21 +148,22 @@ TODO(salikh): Add local server and Cloud Run deployment instructions here.
    ```python
    assignment_notebook(
        name = "nlp-intro",
-       srcs = ["nlp-intro-master.ipynb"],
-   )
-
-   # TODO(salikh): Create the tar file with autograder tests automatically in assignment_notebook().
-   pkg_tar(
-       name = "nlp-intro-autograder_tar",
-       srcs = [":nlp-intro_autograder"],
-       mode = "644",
-       package_dir = "autograder",
-       strip_prefix = "nlp-intro-autograder",
+       src = "nlp-intro-master.ipynb",
    )
    ```
 
    and add it to the autograder image (add `":nlp-intro-autograder_tar"` to the `deps` list of
    the rule `autograder_tar`).
+
+   ```python
+   autograder_tar(
+       name = "autograder_tar",
+       deps = [
+           # ...
+           ":nlp-intro",
+       ],
+   )
+   ```
 
 ## Structure of the programming assignment notebooks
 
