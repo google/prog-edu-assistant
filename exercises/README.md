@@ -9,6 +9,9 @@ notebooks.
 TODO(salikh): Provide a simpler version of installation instructions for the
 student environment sing Conda.
 
+TODO(salikh): Provide a simpler version of student installation instruction
+for Colab notebooks.
+
 ## Installation of the authoring environment
 
 Install virtualenv. The command may differ depending on the system.
@@ -64,12 +67,44 @@ How to use:
 
 4. Replace this `README.md` contents with the description of your project.
 
-TODO(salikh): Implement generation of the autograding backend image.
+## How to build a Docker image
+
+1.  Rename the `docker.ext` directory into `docker`.
+
+    ```shell
+    mv docker.ext docker
+    ```
+
+2. Run the shell script to build Docker image
+
+    ```shell
+    docker/build-docker-image.sh
+    ```
+
+3. Verify that the image works locally
+
+    ```shell
+    docker/start-local-server.sh
+    ```
+
+   Open http://localhost:8000/ to see if the server is ready to accept uploads.
+
+## How to deploy to Google Cloud Run
+
 TODO(salikh): Add local server and Cloud Run deployment instructions here.
 
 ## How to author a new assignment
 
 1. Create a new Python 3 notebook in Jupyter.
+1. Add a cell with standard imports
+
+    ```python
+    # MASTER ONLY
+
+    %load_ext prog_edu_assistant_tools.magics
+    from prog_edu_assistant_tools.magics import report, autotest
+    ```
+
 1. Pick a new assignment name (it must be unique among the assignment
    names that already exist in the project). Add the following metadata block
    inside a **markdown cell**. Don't omit <code>```</code>.
@@ -80,15 +115,15 @@ TODO(salikh): Add local server and Cloud Run deployment instructions here.
        ```
 
 1. Add some introduction and explanatory material.
-1. Add an exercise in a markdown cell. Use an exercise name that is unique inside
-   this assignment notebook.
+1. Add an exercise descrition and metadata in a markdown cell. Use an exercise
+   name that is unique inside this assignment notebook.
    
        ```
        # EXERCISE METADATA
        exercise_id: "BigramFrequency"
        ```
 
-1. Add a canonical solution cell.
+1. Add a canonical solution cell right after the exercise metadata cell.
 
    ```python
    %%solution
@@ -101,7 +136,10 @@ TODO(salikh): Add local server and Cloud Run deployment instructions here.
        # END SOLUTION
    ```
 
-1. Add a student test cell.
+1. Add a student test cell. The student test cell may contain an arbitrary Python code,
+typically an assert statement, that students will be able to use for quick self-checking
+in their local environment. Note that the `%%studenttest` magic line will not be visible
+in the student version of the notebook.
 
    ```python
    %%studenttest StudentTest
@@ -133,7 +171,8 @@ TODO(salikh): Add local server and Cloud Run deployment instructions here.
    TopBigramFrequency = 1
    ```
 
-   and test it with the autograder test.
+   and test it with the autograder test. The `report()` function imitates the
+   HTML output of the autograder that is show to student.
 
    ```python
    result, log = %autotest AutograderTest
@@ -152,8 +191,8 @@ TODO(salikh): Add local server and Cloud Run deployment instructions here.
    )
    ```
 
-   and add it to the autograder image (add `":nlp-intro-autograder_tar"` to the `deps` list of
-   the rule `autograder_tar`).
+   and add it to the dependency list of autograder_tar target (add
+   `":nlp-intro"` to the `deps` list of the rule `autograder_tar`).
 
    ```python
    autograder_tar(
