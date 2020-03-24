@@ -14,31 +14,6 @@ go_binary(
     importpath = "github.com/google/prog-edu-assistant/cmd/uploadserver",
 )
 
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-
-go_image(
-    name = "docker",
-    srcs = ["main.go"],
-    base = "@alpine_with_bash//image",
-    gc_linkopts = [
-        "-linkmode",
-        "external",
-        "-extldflags",
-        "-static",
-    ],
-    importpath = "github.com/google/prog-edu-assistant/cmd/uploadserver",
-    deps = [
-        "//go/autograder",
-        "//go/queue",
-        "//go/uploadserver",
-        "@com_github_golang_glog//:go_default_library",
-        "@com_google_cloud_go//storage:go_default_library",
-        "@in_gopkg_square_go_jose_v2//:go_default_library",
-        "@org_golang_x_oauth2//:go_default_library",
-        "@org_golang_x_oauth2//google:go_default_library",
-    ],
-)
-
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],

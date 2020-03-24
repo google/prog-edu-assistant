@@ -1,40 +1,3 @@
-def assignment_notebook_macro(
-	name,
-	srcs,
-	language = None,
-	visibility = ["//visibility:private"]):
-    """
-    Defines a rule for student notebook and autograder
-    generation from a master notebook.
-
-    Arguments:
-    name:
-    srcs: the file name of the input notebook should end in '-master.ipynb'.
-    """
-    language_opt = ""
-    if language:
-      language_opt = " --language=" + language
-    native.genrule(
-	name = name + "_student",
-	srcs = srcs,
-	outs = [name + '-student.ipynb'],
-	cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --preamble=$(location //exercises:preamble.py) --command=student""" + language_opt,
-	tools = [
-	    "//go/cmd/assign",
-	    "//exercises:preamble.py",
-	],
-    )
-    autograder_output = name + '-autograder'
-    native.genrule(
-	name = name + "_autograder",
-	srcs = srcs,
-	outs = [autograder_output],
-	cmd = """$(location //go/cmd/assign) --input="$<" --output="$@" --command=autograder""" + language_opt,
-	tools = [
-	    "//go/cmd/assign",
-	],
-    )
-
 def _assignment_notebook_impl(ctx):
   print("src = ", ctx.attr.src)
   print("src.path = ", ctx.file.src.path)
@@ -85,7 +48,7 @@ def _assignment_notebook_impl(ctx):
       progress_message = "Running tar %s" % tarfile,
       executable = "/usr/bin/tar",
       # Note: The below requires GNU tar.
-      arguments = ["-c", "-f", tar_out.path, "--transform=s/^./autograder/", "-C", autograder_out.path, "."],
+      arguments = ["-c", "-f", tar_out.path, "--dereference", "--transform=s/^./autograder/", "-C", autograder_out.path, "."],
   )
   return [DefaultInfo(files = depset(outs))]
 
@@ -164,4 +127,34 @@ autograder_tar = rule(
 	cfg = "target",
     ),
   }
+)
+
+def _student_tar_impl(ctx):
+  # Root prefix that notebook input files will have.
+  prefix = ctx.bin_dir.path + '/' + ctx.build_file_path[:-len("/BUILD.bazel")]
+  notebook_inputs = [f for f in ctx.files.srcs if f.path.endswith(".ipynb")]
+  notebook_paths = [f.path[len(prefix)+1:] for f in notebook_inputs]
+  outs = []
+  tarfile = ctx.label.name + ".tar"
+  tar_out = ctx.actions.declare_file(tarfile)
+  outs.append(tar_out)
+  ctx.actions.run(
+      inputs = notebook_inputs,
+      outputs = [tar_out],
+      progress_message = "Running tar %s" % tarfile,
+      executable = "/usr/bin/tar",
+      arguments = (["-c", "-f", tar_out.path, "-C", prefix, "--dereference"] + notebook_paths),
+  )
+  return [DefaultInfo(files = depset(outs))]
+
+# Defines a rule that collects all student notebooks into a tar file.
+student_tar = rule(
+  implementation = _student_tar_impl,
+  attrs = {
+    # The list of assignment_notebook target labels.
+    "srcs": attr.label_list(
+	mandatory=True,
+	allow_empty=False,
+    ),
+  },
 )

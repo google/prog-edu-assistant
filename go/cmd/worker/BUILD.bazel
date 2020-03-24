@@ -14,26 +14,6 @@ go_binary(
     importpath = "github.com/google/prog-edu-assistant/cmd/worker",
 )
 
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-
-go_image(
-    name = "docker",
-    srcs = ["worker.go"],
-    base = "//exercises:autograder_image",
-    gc_linkopts = [
-        "-linkmode",
-        "external",
-        "-extldflags",
-        "-static",
-    ],
-    importpath = "github.com/google/prog-edu-assistant/cmd/worker",
-    deps = [
-        "//go/autograder",
-        "//go/queue",
-        "@com_github_golang_glog//:go_default_library",
-    ],
-)
-
 go_library(
     name = "go_default_library",
     srcs = ["worker.go"],
