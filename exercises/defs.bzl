@@ -125,27 +125,43 @@ assignment_notebook = rule(
 def _autograder_tar_impl(ctx):
   tar_inputs = [f for f in ctx.files.deps if f.path.endswith(".tar")]
   tar_paths = [f.path for f in tar_inputs]
+  static_tar_paths = [f.path for f in ctx.files._static]
+  binary_tar_paths = [f.path for f in ctx.files._binary]
   outs = []
   tarfile = ctx.label.name + ".tar"
   tar_out = ctx.actions.declare_file(tarfile)
   outs.append(tar_out)
   ctx.actions.run(
-      inputs = tar_inputs,
+      inputs = tar_inputs + ctx.files._static + ctx.files._binary,
       outputs = [tar_out],
       progress_message = "Running tar %s" % tarfile,
       executable = "/usr/bin/tar",
       # Note 1: The below requires GNU tar.
       # Note 2: The resulting tar contains zero blocks, so needs -i option when extracting.
-      arguments = ["--concatenate", "-f", tar_out.path] + tar_paths,
+      arguments = (["--concatenate", "-f", tar_out.path] +
+	tar_paths + static_tar_paths + binary_tar_paths),
   )
   return [DefaultInfo(files = depset(outs))]
 
+# Defines a rule that concatenates autograder tar files for
+# individual assignments and adds the static and binary files necessary
+# for deployment.
 autograder_tar = rule(
   implementation = _autograder_tar_impl,
   attrs = {
     "deps": attr.label_list(
 	mandatory=True,
 	allow_empty=False,
+    ),
+    "_static": attr.label(
+	# Include the static files. This attribute should not be set by the user.
+	default = Label("//static:static_tar"),
+	cfg = "target",
+    ),
+    "_binary": attr.label(
+	# Include the binary files. This attribute should not be set by the user.
+	default = Label("//go:binary_tar"),
+	cfg = "target",
     ),
   }
 )
