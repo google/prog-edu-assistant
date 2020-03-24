@@ -1,12 +1,11 @@
 #!/bin/bash
 #
-# Build Docker images of upload server and worker.
-# Note: Message Queue uses stock RabbitMQ docker image.
+# Build the Docker images of autograder.
 #
 # Usage:
 #
 #  ./build.sh
-#  docker-compose up
+#
 
 function @execute() { echo "$@" >&2; "$@"; }
 
