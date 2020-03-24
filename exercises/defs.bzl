@@ -1,4 +1,3 @@
-# TODO(salikh): Implement the automatic tar rules too
 def assignment_notebook_macro(
 	name,
 	srcs,
@@ -123,3 +122,30 @@ assignment_notebook = rule(
   },
 )
 
+def _autograder_tar_impl(ctx):
+  tar_inputs = [f for f in ctx.files.deps if f.path.endswith(".tar")]
+  tar_paths = [f.path for f in tar_inputs]
+  outs = []
+  tarfile = ctx.label.name + ".tar"
+  tar_out = ctx.actions.declare_file(tarfile)
+  outs.append(tar_out)
+  ctx.actions.run(
+      inputs = tar_inputs,
+      outputs = [tar_out],
+      progress_message = "Running tar %s" % tarfile,
+      executable = "/usr/bin/tar",
+      # Note 1: The below requires GNU tar.
+      # Note 2: The resulting tar contains zero blocks, so needs -i option when extracting.
+      arguments = ["--concatenate", "-f", tar_out.path] + tar_paths,
+  )
+  return [DefaultInfo(files = depset(outs))]
+
+autograder_tar = rule(
+  implementation = _autograder_tar_impl,
+  attrs = {
+    "deps": attr.label_list(
+	mandatory=True,
+	allow_empty=False,
+    ),
+  }
+)
