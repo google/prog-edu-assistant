@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -91,16 +90,17 @@ var (
 
 func main() {
 	flag.Parse()
+	glog.Infof("Starting server: %q", os.Args)
 	err := run()
 	if err != nil {
-		log.Fatal(err)
+		glog.Exit(err)
 	}
 }
 
 func run() error {
 	endpoint := google.Endpoint
 	userinfoEndpoint := "https://openidconnect.googleapis.com/v1/userinfo"
-	if *openIDIssuer != "" {
+	if *useOpenID && *openIDIssuer != "" {
 		wellKnownURL := *openIDIssuer + "/.well-known/openid-configuration"
 		resp, err := http.Get(wellKnownURL)
 		if err != nil {
