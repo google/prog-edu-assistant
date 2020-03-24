@@ -77,6 +77,17 @@ def _assignment_notebook_impl(ctx):
       progress_message = "Generating %s" % autograder_out.path,
       command = ctx.executable._assign.path + " --command=autograder --input='" + ctx.file.src.path + "'" + " --output='" + autograder_out.path + "'",
   )
+  tarfile = ctx.label.name + "-autograder.tar"
+  tar_out = ctx.actions.declare_file(tarfile)
+  outs.append(tar_out)
+  ctx.actions.run(
+      inputs = [autograder_out],
+      outputs = [tar_out],
+      progress_message = "Running tar %s" % tarfile,
+      executable = "/usr/bin/tar",
+      # Note: The below requires GNU tar.
+      arguments = ["-c", "-f", tar_out.path, "--transform=s/^./autograder/", "-C", autograder_out.path, "."],
+  )
   return [DefaultInfo(files = depset(outs))]
 
 # Defines a rule for student notebook and autograder
