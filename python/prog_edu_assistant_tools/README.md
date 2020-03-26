@@ -18,6 +18,8 @@ in every master notebook.
 
 ## How to install this package locally
 
+TODO(salikh): Publish `prog_edu_assistant_tools` package to PyPI.
+
     pip install dist/prog_edu_assistant_tools-0.1-py3-none-any.whl
 
 If you are a developer and want to reinstall the package, use the following:

@@ -1,10 +1,13 @@
 # Development environment setup
 
-There are a few parts that are necessary for local development:
+This project is mainly developed using Linux (Debian or derivative).
+It is possible that authoring workflow could work on MacOS as well,
+but we are not testing it.
 
-*   Virtualenv setup for Python and Jupyter for authoring master notebooks.
-*   Docker (and Docker Compose) setup for local testing of autograder backend.
-*   GCloud setup for deployment of autograder backend to GCE.
+The requirements are different depending on whether you are only
+interested in develoment of the Python assignment notebooks (master notebooks)
+or if you need to modify the server or autograder and build deployment
+images.
 
 ## Setup for authoring new assignments (master notebooks)
 
@@ -38,4 +41,14 @@ To start the Jupyter notebook run command
 
 ## Setup for local autograder backend development
 
-You will need to install Docker and Docker Compose.
+The local development requires the following tools:
+
+*   Virtualenv setup for Python and Jupyter for authoring master notebooks, as
+    described above.
+*   Go toolchain (https://golang.org), because the server and autograder are
+    implemented in Go.
+*   Bazel (http://bazel.build).
+*   Docker (https://docs.docker.com/install) is used for building deployment
+    container images and local testing of autograder backend.
+*   Google Cloud SDK (https://cloud.google.com/sdk/install) is used for
+    deployment of autograder backend to GCE.

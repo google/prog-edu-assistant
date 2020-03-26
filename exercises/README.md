@@ -48,8 +48,7 @@ of prog-edu-assistant to an external project.
 
 How to use:
 
-1. Copy the contents of this directory (.ipynb files) into
-   an new empty project.
+1. Copy the contents of this directory into an new empty project.
 
 2. Rename `WORKSPACE.ext` to `WORKSPACE`, and rename `BUILD.ext` to `BUILD.bazel` (overwriting the existing file).
 
