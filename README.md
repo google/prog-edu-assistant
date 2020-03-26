@@ -18,14 +18,16 @@ in the `exercises/` subdirectory are mostly in Japanese language.
 
 ## How to integrate autograder to your course
 
-If you have a course based on Jupyter notebooks and want to integrate
-the autograder tests, see [exercises/README.md].
+If you have a course based on Jupyter notebooks and want to integrate the
+autograder tests, see
+[exercises/README.md](exercises/README.md).
 
 ## Development environment setup
 
-If you want to contribute to this project, start authoring notebooks or contribute to the project
-development, see [SETUP.md] for instructions on how to set up
-the development environment.
+If you want to contribute to this project, start authoring notebooks or
+contribute to the project development, see
+[SETUP.md](SETUP.md)
+for instructions on how to set up the development environment.
 
 ## License
 
