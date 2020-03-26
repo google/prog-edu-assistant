@@ -129,11 +129,20 @@ autograder_tar = rule(
   }
 )
 
+
+def strip_prefix(s, prefix):
+  if s.startswith(prefix):
+    s = s[len(prefix):]
+    if s.startswith('/'):
+      s = s[1:]
+  return s
+
+
 def _student_tar_impl(ctx):
   # Root prefix that notebook input files will have.
   prefix = ctx.bin_dir.path + '/' + ctx.build_file_path[:-len("/BUILD.bazel")]
   notebook_inputs = [f for f in ctx.files.srcs if f.path.endswith(".ipynb")]
-  notebook_paths = [f.path[len(prefix)+1:] for f in notebook_inputs]
+  notebook_paths = [strip_prefix(f.path, prefix) for f in notebook_inputs]
   outs = []
   tarfile = ctx.label.name + ".tar"
   tar_out = ctx.actions.declare_file(tarfile)
@@ -148,6 +157,8 @@ def _student_tar_impl(ctx):
   return [DefaultInfo(files = depset(outs))]
 
 # Defines a rule that collects all student notebooks into a tar file.
+# TODO(salikh): Allow student_tar to additionally specify data dependencies
+# to package.
 student_tar = rule(
   implementation = _student_tar_impl,
   attrs = {

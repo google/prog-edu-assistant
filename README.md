@@ -11,6 +11,11 @@ provide the server-side auto-checking for student notebooks.
 The main focus is Japanese universities, so the assignments text may be
 developed or translated to Japanese language.
 
+## How to integrate autograder to your course
+
+If you have a course based on Jupyter notebooks and want to integrate
+the autograder tests, see [exercises/README.md].
+
 ## Development environment
 
 If you want to start authoring notebooks or contribute to the project
