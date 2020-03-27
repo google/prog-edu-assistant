@@ -1,5 +1,5 @@
 load("@prog_edu_assistant//exercises:defs.bzl",
-     "assignment_notebook", "autograder_tar")
+     "assignment_notebook", "autograder_tar", "student_tar")
 
 assignment_notebook(
     name = "helloworld-en",
@@ -13,10 +13,17 @@ assignment_notebook(
     preamble = "preamble.py",
 )
 
+all_notebooks = [
+    ":helloworld-en",
+    ":functional",
+],
+
 autograder_tar(
     name = "autograder_tar",
-    deps = [
-	":helloworld-en",
-	":functional",
-    ],
+    deps = all_notebooks,
+)
+
+student_tar(
+    name = "student_notebooks_tar",
+    deps = all_notebooks,
 )
