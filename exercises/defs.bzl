@@ -141,7 +141,7 @@ def strip_prefix(s, prefix):
 def _student_tar_impl(ctx):
   # Root prefix that notebook input files will have.
   prefix = ctx.bin_dir.path + '/' + ctx.build_file_path[:-len("/BUILD.bazel")]
-  notebook_inputs = [f for f in ctx.files.srcs if f.path.endswith(".ipynb")]
+  notebook_inputs = [f for f in ctx.files.deps if f.path.endswith(".ipynb")]
   notebook_paths = [strip_prefix(f.path, prefix) for f in notebook_inputs]
   outs = []
   tarfile = ctx.label.name + ".tar"
@@ -163,7 +163,7 @@ student_tar = rule(
   implementation = _student_tar_impl,
   attrs = {
     # The list of assignment_notebook target labels.
-    "srcs": attr.label_list(
+    "deps": attr.label_list(
 	mandatory=True,
 	allow_empty=False,
     ),

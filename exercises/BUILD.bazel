@@ -34,14 +34,16 @@ assignment_notebook(
 assignment_notebook(
     name = "functional",
     src = "functional-master.ipynb",
-    languages = ["en", "ja"],
+    languages = [
+        "en",
+        "ja",
+    ],
 )
 
 assignment_notebook(
     name = "nlp-exercise",
     src = "nlp-exercise-master.ipynb",
 )
-
 
 filegroup(
     name = "data_dir",
@@ -88,23 +90,23 @@ autograder_tar(
         ":dataframe-pre2-data_tar",
         ":dataframe-pre3",
         ":dataframe-pre3-data_tar",
-        ":helloworld-en",
-        ":oop-en",
         ":functional",
+        ":helloworld-en",
         ":nlp-exercise",
+        ":oop-en",
     ],
 )
 
 student_tar(
     name = "student_notebooks_tar",
-    srcs = [
-        ":helloworld-en",
-        ":functional",
-        ":oop-en",
+    deps = [
         ":dataframe-pre1",
         ":dataframe-pre2",
         ":dataframe-pre3",
+        ":functional",
+        ":helloworld-en",
         ":nlp-exercise",
+        ":oop-en",
     ],
 )
 
@@ -120,8 +122,8 @@ pkg_tar(
     package_dir = "tmp/student",
     strip_prefix = ".",  # This is to prevent directory flattening.
     deps = [
-        ":student_notebooks_tar",
         ":data_tar",
+        ":student_notebooks_tar",
     ],
 )
 
