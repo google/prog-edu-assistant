@@ -18,8 +18,7 @@ setuptools.setup(
     'Tools for authoring programming assignments in Jupyter notebooks',
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
-    url=
-    'https://github.com/google/prog-edu-assistant/tree/master/python/notebook_tools',
+    url='https://github.com/google/prog-edu-assistant/tree/master/python/prog_edu_assistant_tools',
     packages=setuptools.find_packages(),
     classifiers=[
         'Programming Language :: Python :: 3',
