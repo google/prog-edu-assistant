@@ -110,3 +110,34 @@ The top-level object contains the following fields:
     or the test that resulted in error.
 * `reports` --- A map from the test name to the HTML string containing the
   rendered student report.
+
+## The protocol of the autograder server
+
+The autograder works behind an standard HTTP server that accepts POST request.
+Each request is a multipart/form-data with the complete Jupyter notebook (JSON
+object saved to .ipynb file) passed as the file upload input with the name
+`notebook`.
+
+The notebook ipynb file is expected to have `metadata` dictionary with a string
+field `assignment_id` that is used to match the upload to the assignment
+directory (first-level subdirectory in /autograder in the autograder image).
+If a string entry `requested_exercise_id` in the notebook-level metadata is
+present, it instructs autograder to only check the specified exercise,
+otherwise all exercises are checked.
+
+The cells of the uploaded notebook are scanned to find code cells with cell-level
+`metadata` dictionary having a string field `exercise_id`. The contents of a cell
+is assumed to contain the student submission for the specific exercise.
+The submission is matched to directory with tests in 
+
+    /autograder/<assignment_id>/<exercise_id>
+		
+After running the tests, the autograder creates and stores a report in
+the local storage. The local container storage is transient and is not
+preserved when the container is taken down. The report in HTML format
+is included in the HTTP response of the autograder. The response also includes
+an HTTP header `X-Report-Url` that contains a URL that allows to retrieve
+the report with a separate HTTP request. The `X-Report-Url` is used
+by the Jupyter notebook extension to show the report to the student
+in a new tab. When submitting from Colab, the original HTTP response
+is displayed to the user immediately, and `X-Report-Url` is not used.
