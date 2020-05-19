@@ -17,6 +17,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -139,6 +140,19 @@ func studentCommand() error {
 	return ioutil.WriteFile(*output, b, 0775)
 }
 
+var nilErr = errors.New("is nil")
+
+func getString(v interface{}) (string, error) {
+	if v == nil {
+		return "", nilErr
+	}
+	s, ok := v.(string)
+	if !ok {
+		return "", fmt.Errorf("is %T, not string", v)
+	}
+	return s, nil
+}
+
 func autograderCommand() error {
 	n, err := notebook.ParseFile(*input)
 	if err != nil {
@@ -149,7 +163,10 @@ func autograderCommand() error {
 		return err
 	}
 
-	assignmentID := n.Metadata["assignment_id"].(string)
+	assignmentID, err := getString(n.Metadata["assignment_id"])
+	if err != nil {
+		return fmt.Errorf("metadata had wrong assignment_id: %s", err)
+	}
 	if *output == "" {
 		fmt.Print("## Dry run mode. Would generate the following files:\n\n")
 		for _, cell := range n.Cells {
