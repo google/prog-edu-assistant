@@ -42,6 +42,9 @@ type Autograder struct {
 	// AutoRemove instructs the autograder to delete the scratch directory path
 	// before creating a new one. This is useful together with DisableCleanup.
 	AutoRemove bool
+	// IncludeLogs instructs the autograder to include the low-lever logs
+	// from nsjail invocation into test report. This is useful for debugging.
+	IncludeLogs bool
 }
 
 // New creates a new autograder instance given the autograder directory.
@@ -540,7 +543,12 @@ var inlineReportTmpl = htmltemplate.Must(htmltemplate.New("inlinereport").Parse(
 <span class='ico green'>&check;</span><span class='message'>Looks OK.</span>
 {{else}}
 <span class='ico red'>&#x274C;</span><span class='message error'>{{.Error}}</span>
-<!-- {{.Logs}} -->
+{{if .Logs}}
+<h2>Logs</h2>
+<div class='logs'>
+{{.Logs}}
+</div>
+{{end}}
 {{end}}
 `))
 
@@ -643,11 +651,15 @@ func (ag *Autograder) RunInlineTest(dir, filename, submissionFilename string) (m
 		formattedSource = sourceBuf.Bytes()
 	}
 	message, _ := outcome["error"].(string)
+	logs := ""
+	if ag.IncludeLogs {
+		logs = string(out)
+	}
 	err = inlineReportTmpl.Execute(&reportBuf, &inlineReportFill{
 		FormattedSource: htmltemplate.HTML(formattedSource),
 		Passed:          passed,
 		Error:           message,
-		Logs:            string(out),
+		Logs:            logs,
 	})
 	if err != nil {
 		return nil, "", "", err

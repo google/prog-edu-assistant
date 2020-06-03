@@ -67,6 +67,14 @@ h2 {
 .code li:last-child {
   margin-bottom: 0px;
 }
+.logs {
+  font-family: monospace;
+  font-size: 10pt;
+  background-color: #EEEEEE;
+  padding: 4px;
+  border-color: #E0E0E0;
+  margin: 8px;
+}
 
 /*
  * Based on default theme

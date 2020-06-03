@@ -348,6 +348,7 @@ type reportFill struct {
 	ErrorMessage string
 }
 
+// reportTmpl defines a template for self-sufficient HTML report.
 var reportTmpl = template.Must(template.New("reportTmpl").Parse(`
 <title>{{.Title}}</title>
 <style type='text/css'>
@@ -403,6 +404,14 @@ h2 {
 }
 .code li:last-child {
   margin-bottom: 0px;
+}
+.logs {
+  font-family: monospace;
+  font-size: 10pt;
+  background-color: #EEEEEE;
+  padding: 4px;
+  border-color: #E0E0E0;
+  margin: 8px;
 }
 
 /*

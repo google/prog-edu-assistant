@@ -75,6 +75,10 @@ var (
 	autoRemove = flag.Bool("auto_remove", false,
 		"If true, removes the scratch directory before creating a new one. "+
 			"This is useful together with --disable_cleanup and --grade_locally.")
+	includeLogsToReport = flag.Bool("include_logs_to_report", false,
+		"If true, autograder includes the low-level output of nsjail into report. "+
+			"This is useful for debugging.")
+
 	logToBucket = flag.Bool("log_to_bucket", false,
 		"If true, configures the server to write logs to Google Cloud "+
 			"Storage bucket. The bucket name should be provided "+
@@ -161,6 +165,7 @@ func run() error {
 			PythonPath:     *pythonPath,
 			DisableCleanup: *disableCleanup,
 			AutoRemove:     *autoRemove,
+			IncludeLogs:    *includeLogsToReport,
 		}
 	} else {
 		// Connect to message queue if not grading locally.
