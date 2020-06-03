@@ -21,6 +21,8 @@ pkg_tar(
     name = "binary_tar",
     srcs = [
         "//go/cmd/uploadserver",
+        # Having a stand-alone grade binary in the image is helpful for debugging.
+        "//go/cmd/grade",
     ],
     mode = "755",
     package_dir = "bin",
