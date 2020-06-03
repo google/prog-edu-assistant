@@ -523,6 +523,7 @@ var (
 	inlineOutcomeRegex = regexp.MustCompile(`(OK|ERROR|FAIL){{((?:[^}]|}[^}])*)}}`)
 	syntaxErrorRegex   = regexp.MustCompile(`(?m)(SyntaxError: .*)$`)
 	timeoutRegex       = regexp.MustCompile(`time limit.*Killing it`)
+	nsjailErrorRegex   = regexp.MustCompile(`(nsjail: error.*)$`)
 )
 
 type inlineReportFill struct {
@@ -604,6 +605,11 @@ func (ag *Autograder) RunInlineTest(dir, filename, submissionFilename string) (m
 		// The file was run successfully.
 		passed = true
 	}
+	var errors []string
+	if m := nsjailErrorRegex.Find(out); m != nil {
+		passed = false
+		errors = append(errors, string(m))
+	}
 	mm := syntaxErrorRegex.FindAllSubmatch(out, -1)
 	if len(mm) > 0 {
 		passed = false
@@ -611,12 +617,13 @@ func (ag *Autograder) RunInlineTest(dir, filename, submissionFilename string) (m
 		for _, m := range mm {
 			parts = append(parts, string(m[1]))
 		}
-		outcome["error"] = strings.Join(parts, "; ")
+		errors = append(errors, parts...)
 	}
 	if timeoutRegex.Find(out) != nil {
 		passed = false
-		outcome["error"] = "Time out."
+		errors = append(errors, "Time out.")
 	}
+	outcome["error"] = strings.Join(errors, "; ")
 	outcome["passed"] = passed
 	mm = inlineOutcomeRegex.FindAllSubmatch(out, -1)
 	if len(mm) == 0 {
