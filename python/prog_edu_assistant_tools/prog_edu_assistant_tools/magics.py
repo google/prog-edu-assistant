@@ -227,6 +227,38 @@ class MyMagics(magic.Magics):
         else:
             raise Exception("Unrecognized autotest argument of class %s" % (test_case.__class__))
 
+    @classmethod
+    def CutPrompt(cls, cell):
+        '''Returns the contents of the cell cleaned from markup.
+
+        It cuts out the prompt blocks (""" # BEGIN/END PROMPT), and drops the
+        solution marker lines (# BEGIN/END SOLUTION).
+        '''
+        mm = [m for m in re.finditer(
+            '(?ms)^[ \t]*""" # (BEGIN) PROMPT[ \t]*\n?|""" # (END) PROMPT[ \t]*\n?',
+            cell)]
+        last = -1  # The end of the block to cut, or -1 if not in prompt region.
+        # Process the list of matches backwards so that cutting positions
+        # would not be affected.
+        mm.reverse()
+        for m in mm:
+          if m.groups()[1] == "END":
+            if last != -1:
+              raise Exception(f'Unbalanced PROMPT block in cell:\n{cell}')
+            last = m.end()
+          else:
+            if last == -1:
+              raise Exception(f'Unbalanced PROMPT block in cell:\n{cell}')
+            cell = cell[0:m.start()] + cell[last:]
+            last = -1
+        if last != -1:
+          raise Exception(f'Unbalanced PROMPT block in cell:\n{cell}')
+        # Cut out BEGIN/END SOLUTION markers
+        cell = re.sub('(?ms)^[ \t]*# BEGIN SOLUTION[ \t]*\n?', '', cell)
+        cell = re.sub('(?ms)^[ \t]*# END SOLUTION[ \t]*\n?', '', cell)
+        return cell
+
+
     @magic.cell_magic
     def submission(self, line, cell):
         """Registers a submission_source and submission, if the code can run.
@@ -265,12 +297,8 @@ class MyMagics(magic.Magics):
         """
         _ = line  # Unused.
 
-        # Cut out PROMPT
-        cell = re.sub(
-            '(?ms)^[ \t]*""" # BEGIN PROMPT.*""" # END PROMPT[ \t]*\n?', '',
-            cell)
-        # Cut out BEGIN/END SOLUTION markers
-        cell = re.sub('(?ms)^[ \t]*# (BEGIN|END) SOLUTION[ \t]*\n?', '', cell)
+        # Cut out PROMPT and SOLUTION markers.
+        cell = self.CutPrompt(cell)
 
         # Copy the source into submission_source.source
         self.shell.user_ns['submission_source'] = types.SimpleNamespace(

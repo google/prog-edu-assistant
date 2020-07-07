@@ -30,11 +30,11 @@ in every master notebook.
 
 TODO(salikh): Publish `prog_edu_assistant_tools` package to PyPI.
 
-    pip install dist/prog_edu_assistant_tools-0.1-py3-none-any.whl
+    pip install dist/prog_edu_assistant_tools-0.2-py3-none-any.whl
 
 If you are a developer and want to reinstall the package, use the following:
 
-    pip install --ignore-installed dist/prog_edu_assistant_tools-0.1-py3-none-any.whl
+    pip install --ignore-installed dist/prog_edu_assistant_tools-0.2-py3-none-any.whl
 
 ## How to use this package in master notebooks.
 
