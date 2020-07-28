@@ -127,6 +127,7 @@ func New(opts Options) *Server {
 		Secure:   s.opts.SecureCookie,
 	}
 	mux.Handle("/upload", handleError(s.handleUpload))
+	mux.Handle("/upload.txt", handleError(s.handleUpload))
 	mux.Handle("/uploads/", http.StripPrefix("/uploads",
 		http.FileServer(http.Dir(s.opts.UploadDir))))
 	mux.HandleFunc("/favicon.ico", s.handleFavIcon)
@@ -926,6 +927,12 @@ func (s *Server) handleUpload(w http.ResponseWriter, req *http.Request) error {
 			return fmt.Errorf("error closing log writer: %w", err)
 		}
 		glog.V(5).Infof("Written %d bytes to %s to log bucket %s", n, submissionID+".txt", s.opts.LogBucketName)
+	}
+	if path.Ext(req.URL.Path) == ".txt" {
+		// Return the plain text of report JSON.
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, err := w.Write(report)
+		return err
 	}
 	return s.renderReport(w, submissionID, report)
 }
