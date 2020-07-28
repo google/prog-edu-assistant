@@ -29,3 +29,8 @@ filegroup(
     ],
     visibility = ["//visibility:public"],
 )
+
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix github.com/google/prog-edu-assistant
+gazelle(name = "gazelle")
