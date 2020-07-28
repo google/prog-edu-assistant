@@ -247,7 +247,16 @@ func (s *Server) handleFavIcon(w http.ResponseWriter, req *http.Request) {
 // grading work and producing reports with long delay.
 func (s *Server) handleReport(w http.ResponseWriter, req *http.Request) error {
 	basename := path.Base(req.URL.Path)
-	filename := filepath.Join(s.opts.UploadDir, basename+".txt")
+	filename := filepath.Join(s.opts.UploadDir, basename)
+	ext := path.Ext(basename)
+	serveHTML := true
+	if ext == ".txt" {
+		// When the report is requested with .txt suffix, just serve it
+		// as plain text. This is useful for testing.
+		serveHTML = false
+	} else {
+		filename = filename + ".txt"
+	}
 	glog.V(5).Infof("checking %q for existence", filename)
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -295,7 +304,14 @@ function refresh(t) {
 	if err != nil {
 		return err
 	}
-	return s.renderReport(w, basename, b)
+	if serveHTML {
+		// Render nice HTML report.
+		return s.renderReport(w, basename, b)
+	}
+	// Just serve the plain text.
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, err = w.Write(b)
+	return err
 }
 
 func (s *Server) renderReport(w http.ResponseWriter, submissionID string, reportData []byte) error {
