@@ -199,14 +199,14 @@ class MyMagics(magic.Magics):
             errorMessage = None
             with CaptureOutput() as (out, err):
                 try:
-                    env = {}
                     # Assume the context has already been
                     # set up in user_ns.
+                    env = {k: v for (k, v) in self.shell.user_ns.items()}
                     # Exercise the code under test.
                     exec(self.shell.user_ns['submission_source'].source,
-                            self.shell.user_ns, env)  # pylint: disable=W0122
+                            env)  # pylint: disable=W0122
                     # Exercise the inline test.
-                    exec(test_case.source, self.shell.user_ns, env)  # pylint: disable=W0122
+                    exec(test_case.source, env)  # pylint: disable=W0122
                 except AssertionError as e:
                     errorMessage = e
                 except Exception as e:
