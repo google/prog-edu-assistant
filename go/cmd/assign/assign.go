@@ -39,6 +39,16 @@ var (
 	preamble = flag.String("preamble", "",
 		"The file name of the preamble, i.e. a python code snippet "+
 			"to be added as a first code cell in student notebook.")
+	insertCheckCell = flag.Bool("insert_check_cell", false,
+		"If true, instructs the student notebook export to insert a check cell "+
+			"after each exercise cell. The check cell contents is specified in "+
+			"--check_cell_template")
+	checkCellTemplate = flag.String("check_cell_template", "",
+		"If --insert_check_cell is enabled, specifies the template "+
+			"to use for inserting a student check "+
+			"cell after each exercise (in the student notebook). For example, "+
+			"Use 'Submit(\"{{.exercise_id}}\")' for Colab export. "+
+			"{{.exercise_id}} is replaced with the exercise ID.")
 )
 
 type commandDesc struct {
@@ -111,7 +121,10 @@ func studentCommand() error {
 	if err != nil {
 		return err
 	}
-	n, err = n.ToStudent(l)
+	n, err = n.ToStudent(l, &notebook.StudentOptions{
+		InsertCheckCell:   *insertCheckCell,
+		CheckCellTemplate: *checkCellTemplate,
+	})
 	if err != nil {
 		return err
 	}

@@ -18,13 +18,17 @@ def _assignment_notebook_impl(ctx):
     language_opt = ""
     if lang:
       language_opt = " -language='" + lang + "'"
-    print(" command = " + ctx.executable._assign.path + " --command=student --input='" + ctx.file.src.path + "'" + " --output='" + out.path + "'" + language_opt + preamble_opt)
+    check_cell_opt = ""
+    if ctx.attr.check_cell_template:
+      check_cell_opt = (" --insert_check_cell --check_cell_template='" +
+			ctx.attr.check_cell_template + "'")
+    print(" command = " + ctx.executable._assign.path + " --command=student --input='" + ctx.file.src.path + "'" + " --output='" + out.path + "'" + language_opt + preamble_opt + check_cell_opt)
     ctx.actions.run_shell(
       inputs = inputs,
       outputs = [out],
       tools = [ctx.executable._assign],
       progress_message = "Generating %s" % out.path,
-      command = ctx.executable._assign.path + " --command=student --input='" + ctx.file.src.path + "'" + " --output='" + out.path + "'" + language_opt + preamble_opt,
+      command = ctx.executable._assign.path + " --command=student --input='" + ctx.file.src.path + "'" + " --output='" + out.path + "'" + language_opt + preamble_opt + check_cell_opt,
     )
   
   # TODO(salikh): Consider if we need to generate language-specific
@@ -76,6 +80,10 @@ assignment_notebook = rule(
 	default=None,
 	mandatory=False,
         allow_single_file=True),
+    # If non-empty, enables insertion of check cells according to the template.
+    "check_cell_template": attr.string(default="", mandatory=False),
+    # This is private attribute used to capture the dependency
+    # on the assign tool.
     "_assign": attr.label(
 	default = Label("//go/cmd/assign"),
 	allow_single_file = True,

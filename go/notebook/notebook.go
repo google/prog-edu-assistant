@@ -3,8 +3,10 @@
 package notebook
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"reflect"
 	"regexp"
@@ -482,6 +484,7 @@ func CleanForStudent(cell *Cell, assignmentMetadata, exerciseMetadata map[string
 				glog.V(3).Infof("last part: %q", source[mend[i][1]:])
 			}
 		}
+		// Add the exerciseMetadata to the %%solution cell.
 		return &Cell{
 			Type:     "code",
 			Metadata: exerciseMetadata,
@@ -508,8 +511,13 @@ func CleanForStudent(cell *Cell, assignmentMetadata, exerciseMetadata map[string
 	}, nil
 }
 
+type StudentOptions struct {
+	InsertCheckCell   bool
+	CheckCellTemplate string
+}
+
 // ToStudent converts a master notebook into the student notebook.
-func (n *Notebook) ToStudent(lang Language) (*Notebook, error) {
+func (n *Notebook) ToStudent(lang Language, options *StudentOptions) (*Notebook, error) {
 	// Assignment metadata is global for the notebook.
 	assignmentMetadata := make(map[string]interface{})
 	// Exercise metadata only applies to the next code block,
@@ -566,12 +574,38 @@ func (n *Notebook) ToStudent(lang Language) (*Notebook, error) {
 		if m := exerciseContextRegex.FindStringIndex(source); m != nil {
 			return nil, nil
 		}
+		// Clean the solution cell.
 		if m := solutionMagicRegex.FindStringIndex(source); m != nil {
 			clean, err := CleanForStudent(cell, assignmentMetadata, exerciseMetadata, lang)
 			if err != nil {
 				return nil, err
 			}
-			return []*Cell{clean}, nil
+			retCells := []*Cell{clean}
+			if options != nil && options.InsertCheckCell {
+				tmpl, err := template.New("check_cell").Parse(options.CheckCellTemplate)
+				if err != nil {
+					return nil, fmt.Errorf("error parsing check cell template %q: %s",
+						options.CheckCellTemplate, err)
+				}
+				exercise_id, ok := exerciseMetadata["exercise_id"].(string)
+				if !ok {
+					return nil, fmt.Errorf("InsertCheckCell is enabled, but the solution cell "+
+						"does not have exercise_id, metadata: %v, cell: %v", exerciseMetadata, clean)
+				}
+				b := new(bytes.Buffer)
+				m := map[string]string{"exercise_id": exercise_id}
+				err = tmpl.Execute(b, m)
+				if err != nil {
+					return nil, fmt.Errorf("error renderng check template %q: %s",
+						options.CheckCellTemplate, err)
+				}
+				checkCell := &Cell{
+					Type:   "code",
+					Source: b.String(),
+				}
+				retCells = append(retCells, checkCell)
+			}
+			return retCells, nil
 		}
 		// Skip # BEGIN UNITTEST, %%submission, %%solution, %autotest and # MASTER ONLY cells.
 		if unittestBeginRegex.MatchString(source) ||
