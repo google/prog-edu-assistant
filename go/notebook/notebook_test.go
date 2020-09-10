@@ -286,9 +286,30 @@ class MyTest(unittest.TestCase):
 `},
 		},
 		{
+			name:  "Inlinetest0",
+			input: []string{"%%inlinetest A\ninline1\ninline2"},
+			// First cell corresponds to the context of inline test, second cell -- inline test itself.
+			want: []string{"\n", "inline1\ninline2\n"},
+		},
+		{
 			name:  "Inlinetest1",
 			input: []string{"context1", "context2", "%%inlinetest A\ninline1\ninline2"},
-			want:  []string{"context1\ncontext2\n", "inline1\ninline2\n"},
+			want:  []string{"\n", "inline1\ninline2\n"},
+		},
+		{
+			name:  "Inlinetest2",
+			input: []string{"context1", "# EXERCISE CONTEXT\ncontext2", "%%inlinetest A\ninline1\ninline2"},
+			want:  []string{"# EXERCISE CONTEXT\ncontext2\n", "inline1\ninline2\n"},
+		},
+		{
+			name:  "Inlinetest2",
+			input: []string{"# GLOBAL CONTEXT\ncontext1", "# EXERCISE CONTEXT\ncontext2", "%%inlinetest A\ninline1\ninline2"},
+			want:  []string{"# GLOBAL CONTEXT\ncontext1\n# EXERCISE CONTEXT\ncontext2\n", "inline1\ninline2\n"},
+		},
+		{
+			name:  "GlobalContext1",
+			input: []string{"# GLOBAL CONTEXT\ncontext1", "student", "%%inlinetest A\ninline1\ninline2"},
+			want:  []string{"# GLOBAL CONTEXT\ncontext1\n", "inline1\ninline2\n"},
 		},
 		{
 			name:  "Studenttest1",
@@ -318,12 +339,13 @@ class MyTest(unittest.TestCase):
 		{
 			name:  "ShellCallouts5",
 			input: []string{"context", "%%inlinetest A\naaa\n!pip install something\nbbb\n!something else\nccc"},
-			want:  []string{"context\n", "aaa\nbbb\nccc\n"},
+			want:  []string{"\n", "aaa\nbbb\nccc\n"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n := createNotebook(tt.input)
+			t.Logf("input notebook has %d cells", len(n.Cells))
 			got, err := n.ToAutograder()
 			if err != nil {
 				t.Errorf("ToAutograder([%s]) returned error %s, want success",

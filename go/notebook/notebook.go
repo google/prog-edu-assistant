@@ -691,10 +691,11 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 	// Exercise ID is state that applies to subsequent unittest cells.
 	var exerciseID string
 	var exerciseMetadata map[string]interface{}
-	// Context cells are the code cells before the start of the first exercise,
-	// and code cells from the beginning of the exercise, excluding the solution cell,
-	// but including the student test cells.
+	// Context cells are the code cells marked with # GLOBAL CONTEXT.
+	// They are preserved in the student notebook (with '# GLOBAL CONTEXT' marker removed).
 	var globalContext []*Cell
+	// Exercise context cells are code cells marked with # EXERCISE CONTEXT.
+	// They are removed from the student notebook.
 	var exerciseContext []*Cell
 	transformed, err := n.MapCells(func(cell *Cell) ([]*Cell, error) {
 		source := cell.Source
@@ -765,24 +766,15 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 			// Create an inline test.
 			for _, c := range globalContext {
 				// Create a clean student version of a code cell.
-				clean, err := CleanForStudent(c, assignmentMetadata, exerciseMetadata, AnyLanguage)
-				if err != nil {
-					return nil, err
-				}
-				if clean != nil && strings.Trim(clean.Source, " \t\n") != "" {
+				if strings.Trim(c.Source, " \t\n") != "" {
 					// Accumulate code.
-					parts = append(parts, clean.Source)
+					parts = append(parts, c.Source)
 				}
 			}
 			for _, c := range exerciseContext {
-				// Create a clean student version of a code cell.
-				clean, err := CleanForStudent(c, assignmentMetadata, exerciseMetadata, AnyLanguage)
-				if err != nil {
-					return nil, err
-				}
-				if clean != nil && strings.Trim(clean.Source, " \t\n") != "" {
+				if strings.Trim(c.Source, " \t\n") != "" {
 					// Accumulate code.
-					parts = append(parts, clean.Source)
+					parts = append(parts, c.Source)
 				}
 			}
 			glog.V(3).Infof("parts: %q", parts)
@@ -848,17 +840,12 @@ func (n *Notebook) ToAutograder() (*Notebook, error) {
 				},
 			}, nil
 		} else {
-			// For every non-solution and non-inline test code cell, add it to global
-			// or exercise context (for inline tests).
-			addToGlobal := exerciseID == ""
+			// For all other cells, check the # (GLOBAL|EXERCISE) CONTEXT to decide
+			// whether to add them to context or not.
 			if m := globalContextRegex.FindStringIndex(source); m != nil {
-				addToGlobal = true
-			}
-			if addToGlobal {
-				// Before the first exercise, append to global context.
 				globalContext = append(globalContext, cell)
-			} else {
-				// After an exercise ID is set, append to the exercise context.
+			}
+			if m := exerciseContextRegex.FindStringIndex(source); m != nil {
 				exerciseContext = append(exerciseContext, cell)
 			}
 		}
