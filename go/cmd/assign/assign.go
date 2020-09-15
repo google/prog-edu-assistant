@@ -40,7 +40,7 @@ var (
 	preamble = flag.String("preamble", "",
 		"The file name of the preamble, i.e. a python code snippet "+
 			"to be added as a first code cell in student notebook.")
-	preambleMetadata = flag.String("preamble_metadata", "'cellView':'form'",
+	preambleMetadata = flag.String("preamble_metadata", "",
 		"A JSON snippet that is stored into the metadata "+
 			"of the preamble cell.")
 	insertCheckCell = flag.Bool("insert_check_cell", false,
