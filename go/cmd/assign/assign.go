@@ -17,6 +17,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -39,6 +40,9 @@ var (
 	preamble = flag.String("preamble", "",
 		"The file name of the preamble, i.e. a python code snippet "+
 			"to be added as a first code cell in student notebook.")
+	preambleMetadata = flag.String("preamble_metadata", "'cellView':'form'",
+		"A JSON snippet that is stored into the metadata "+
+			"of the preamble cell.")
 	insertCheckCell = flag.Bool("insert_check_cell", false,
 		"If true, instructs the student notebook export to insert a check cell "+
 			"after each exercise cell. The check cell contents is specified in "+
@@ -134,11 +138,21 @@ func studentCommand() error {
 			return fmt.Errorf("error reading --preamble %q: %w",
 				*preamble, err)
 		}
+		var metadata map[string]interface{} = nil
+		if *preambleMetadata != "" {
+			metadata = make(map[string]interface{})
+			err := json.Unmarshal([]byte(*preambleMetadata), &metadata)
+			if err != nil {
+				return fmt.Errorf("error parsing JSON from --preamble_metadata %q: %s",
+					*preambleMetadata, err)
+			}
+		}
 		// Prepend the preamble as a code cell.
 		n.Cells = append([]*notebook.Cell{
 			&notebook.Cell{
-				Type:   "code",
-				Source: string(b),
+				Type:     "code",
+				Source:   string(b),
+				Metadata: metadata,
 			},
 		}, n.Cells...)
 	}
