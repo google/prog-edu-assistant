@@ -1,6 +1,6 @@
 def _assignment_notebook_impl(ctx):
-  print("src = ", ctx.attr.src)
-  print("src.path = ", ctx.file.src.path)
+  #print("src = ", ctx.attr.src)
+  #print("src.path = ", ctx.file.src.path)
   outs = []
   languages = ctx.attr.languages
   inputs = [ctx.file.src]
@@ -24,7 +24,7 @@ def _assignment_notebook_impl(ctx):
     if ctx.attr.check_cell_template:
       check_cell_opt = (" --insert_check_cell --check_cell_template='" +
 			ctx.attr.check_cell_template + "'")
-    print(" command = " + ctx.executable._assign.path + " --command=student --input='" + ctx.file.src.path + "'" + " --output='" + out.path + "'" + language_opt + preamble_opt + check_cell_opt)
+    #print(" command = " + ctx.executable._assign.path + " --command=student --input='" + ctx.file.src.path + "'" + " --output='" + out.path + "'" + language_opt + preamble_opt + check_cell_opt)
     ctx.actions.run_shell(
       inputs = inputs,
       outputs = [out],
@@ -155,17 +155,49 @@ def _student_tar_impl(ctx):
   prefix = ctx.bin_dir.path + '/' + ctx.build_file_path[:-len("/BUILD.bazel")]
   notebook_inputs = [f for f in ctx.files.deps if f.path.endswith(".ipynb")]
   notebook_paths = [strip_prefix(f.path, prefix) for f in notebook_inputs]
+  # data dependencies can be direct (source files to include into output .tar file)
+  # or .tar archives (to concatenate into output .tar file).
+  data_inputs = [f for f in ctx.files.data if not f.path.endswith(".tar")]
+  data_paths = [f.path for f in data_inputs]
+  tar_inputs = [f for f in ctx.files.data if f.path.endswith(".tar")]
+  tar_paths = [f.path for f in tar_inputs]
   outs = []
+  # The final output.
   tarfile = ctx.label.name + ".tar"
   tar_out = ctx.actions.declare_file(tarfile)
   outs.append(tar_out)
-  ctx.actions.run(
-      inputs = notebook_inputs,
-      outputs = [tar_out],
-      progress_message = "Running tar %s" % tarfile,
-      executable = "/usr/bin/tar",
-      arguments = (["-c", "-f", tar_out.path, "-C", prefix, "--dereference"] + notebook_paths),
-  )
+  if len(tar_inputs) > 0:
+    # The intermediate output only with files.
+    files_tarfile = ctx.label.name + ".files.tar"
+    files_tar_out = ctx.actions.declare_file(files_tarfile)
+    # There are tar inputs. Generate in two steps.
+    # Step 1: collect all file inputs into an intermediate tar.
+    #print("tar command: /usr/bin/tar -c -f " + files_tar_out.path + " --dereference " + " ".join(data_paths)+ " -C " + prefix + " ".join(notebook_paths))
+    ctx.actions.run(
+	inputs = notebook_inputs + data_inputs,
+	outputs = [files_tar_out],
+	progress_message = "Running tar %s" % files_tarfile,
+	executable = "/usr/bin/tar",
+	arguments = (["-c", "-f", files_tar_out.path, "--dereference"] + data_paths + ["-C", prefix] + notebook_paths),
+    )
+    #print("tar command: /usr/bin/tar --concatenate -f " + tar_out.path + " " + files_tar_out.path + " ".join(tar_paths))
+    ctx.actions.run(
+	inputs = [files_tar_out] + tar_inputs,
+	outputs = [tar_out],
+	progress_message = "Running tar %s" % tarfile,
+	executable = "/usr/bin/tar",
+	arguments = (["--concatenate", "-f", tar_out.path, files_tar_out.path] + tar_paths),
+    )
+  else:
+    # No tar inputs, just generate the output tar file.
+    #print("tar command: /usr/bin/tar -c -f " + tar_out.path + "-C" + prefix + "--dereference "+ " ".join(notebook_paths + data_paths))
+    ctx.actions.run(
+	inputs = notebook_inputs + data_inputs,
+	outputs = [tar_out],
+	progress_message = "Running tar %s" % tarfile,
+	executable = "/usr/bin/tar",
+	arguments = (["-c", "-f", tar_out.path, "--dereference"] + data_paths + ["-C", prefix] + notebook_paths),
+    )
   return [DefaultInfo(files = depset(outs))]
 
 # Defines a rule that collects all student notebooks into a tar file.
@@ -178,6 +210,12 @@ student_tar = rule(
     "deps": attr.label_list(
 	mandatory=True,
 	allow_empty=False,
+    ),
+    # The list of tar labels to concatenate as data.
+    "data": attr.label_list(
+	mandatory=False,
+	allow_empty=True,
+	allow_files=True,
     ),
   },
 )
