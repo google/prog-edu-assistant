@@ -9,7 +9,7 @@ def _assignment_notebook_impl(ctx):
     preamble_opt = " --preamble='" + ctx.file.preamble.path + "'"
     inputs.append(ctx.file.preamble)
     if ctx.attr.preamble_metadata:
-      preamble_opt = " --preamble_metadata='" + ctx.attr.preamble_metadata + "'"
+      preamble_opt = preamble_opt + " --preamble_metadata='" + ctx.attr.preamble_metadata + "'"
   if len(languages) == 0:
     # Force the language-agnostic notebook generation by default.
     languages = [""]
