@@ -1,4 +1,17 @@
 #!/usr/bin/env python
+#
+# A tool to convert master notebook to student notebook, similar to
+# //go/cmd/assign.go.
+#
+# Note: at the moment, it only supports the minimal functionality that is
+# necessary for running inline tests in Colab directly.
+# TODO(salikh): Support unit tests, templates and other functionality of
+# //go/cmd/assign.go.
+#
+# Usage:
+#
+#     convert_to_student.py master.ipynb > student.ipynb
+#
 
 import copy
 import json
@@ -55,12 +68,13 @@ def PrintNotebook(notebook):
     for cell in notebook['cells']:
         source = ''.join(cell['source'])
         print('-- ' + cell['cell_type'])
+        if 'metadata' in cell:
+            print('# ' + str(cell['metadata']))
         print(source)
 
 
 # A regexp identifying master-only notebooks. Applies both to code and markdown cells.
-reMasterOnly = re.compile('^[\t ]*#.*MASTER ONLY.*$', re.M)
-reTest = re.compile('^%%inlinetest')
+reMasterOnly = re.compile('^[\t ]*#.*MASTER ONLY.*\n?', re.M)
 reSubmission = re.compile('^%%submission[ \t]*\n')
 reAutotest = re.compile('%autotest|autotest\\(')
 reReport = re.compile('%%(template|report)|report\\(')
@@ -70,7 +84,9 @@ reSolutionBegin = re.compile('^([ \t]*)# BEGIN SOLUTION[ \t]*\n', re.M)
 reSolutionEnd = re.compile('^[ \t]*# END SOLUTION[ \t]*\n', re.M)
 rePromptBegin = re.compile('^[ \t]*""" # BEGIN PROMPT[ \t]*\n', re.M)
 rePromptEnd = re.compile('^[ \t]*""" # END PROMPT[ \t]*\n?', re.M)
-
+reStudentTest = re.compile('^%%studenttest *([a-zA-Z0-9_]*)[ \t]*\n')
+reInlineTest = re.compile('^%%inlinetest *([a-zA-Z0-9_]*)[ \t]*\n')
+reExerciseId = re.compile('^# *EXERCISE[_ ]ID:[ \t]*[\'"]?([a-zA-Z0-9_.-]*)[\'"]?[ \t]*\n?', re.M)
 
 def ShouldSkipCodeCell(source):
     """Returns true iff the cell should be skipped from student notebook.
@@ -83,6 +99,7 @@ def ShouldSkipCodeCell(source):
     """
     return (reMasterOnly.search(source) or
             reSubmission.search(source) or
+            reInlineTest.search(source) or
             reAutotest.search(source) or
             reReport.search(source))
 
@@ -125,6 +142,9 @@ def CleanCodeCell(source):
     m = reExerciseID.search(source)
     if m:
         source = source[0:m.start(0)] + source[m.end(0):]
+    m = reStudentTest.search(source)
+    if m:
+        source = source[m.end(0):]
     m = reSolutionBegin.search(source)
     if m:
         indent = m.group(1)
@@ -152,8 +172,21 @@ def CleanCodeCell(source):
     return source
 
 
+def CleanMarkdownCell(source):
+    """Rewrites the source of the markdown cell source.
+
+    Args:
+        source: The merged source string of the markdown cell.
+
+    Returns:
+        A cleaned up source string.
+    """
+    # TODO(salikh): Implement removing of triple-backtick cells with metadata.
+    return source
+
+
 def ExtractExerciseID(source):
-    """Attempts to extracts exercise ID from the code cell.
+    """Attempts to extract exercise ID from the code cell.
 
     Args:
         source: The merged source string of the code cell.
@@ -167,7 +200,38 @@ def ExtractExerciseID(source):
     return None
 
 
-def ToStudent(notebook):
+def ExtractInlineTest(source):
+    """Attempts to extract inline test from the code cell.
+
+    Args:
+        source: The merged source string of the code cell.
+
+    Returns:
+        test_name: The name of the inline test, or None.
+        test_source: The source of the inline test, or None.
+    """
+    m = reInlineTest.search(source)
+    if m:
+        return m.group(1), source[m.end(0):]
+    return None, None
+
+
+def ExtractExerciseId(source):
+    """Attempts to extract the exercise id from the code cell.
+
+    Args:
+        source: The merged source string of the code cell.
+
+    Returns:
+        exercide ID string if exercise ID is found, or None otherwise.
+    """
+    m = reExerciseId.search(source)
+    if m:
+        return m.group(1)
+    return None
+
+
+def ToStudent(notebook, embed_inline_tests=True):
     """Convert a master notebook to student notebook.
 
     It removes the cells that are recognized as tests and master-only cells,
@@ -176,27 +240,65 @@ def ToStudent(notebook):
 
     Args:
         notebook: a master notebook in the form of a JSON object.
+        embed_inline_tests: whether the inline tests should be embedded into
+          solution cell metadata.
 
     Returns
         A converted student notebook in the form of a JSON object.
     """
+    # exercise_id -> inline test name -> inline test source.
+    inline_tests = {}
     output_cells = []
+    current_exercise_id = None
     for cell in notebook['cells']:
         source = ''.join(cell['source'])
         if reMasterOnly.search(source):
             continue
+        metadata = {}
+        if 'metadata' in cell:
+            metadata = copy.deepcopy(cell['metadata'])
         cell_type = cell['cell_type']
+        if cell_type == 'markdown':
+            source = CleanMarkdownCell(source)
+            output_cell = {
+                'cell_type': 'markdown',
+                'source': source.splitlines(keepends=True),
+            }
+            if len(metadata) > 0:
+                output_cell['metadata'] = metadata
+            output_cells.append(output_cell)
+            continue
         if cell_type != 'code':
+            # Pass through cells with unknown type.
             output_cells.append(cell)
             continue
         # cell_type == 'code'
+        if embed_inline_tests:
+            # Check whether the cell contains an inline test.
+            test_name, test_source = ExtractInlineTest(source)
+            if test_name:
+                if not current_exercise_id:
+                    raise Exception('Found an inline test, but no current exercise')
+                if current_exercise_id not in inline_tests:
+                    inline_tests[current_exercise_id] = {}
+                inline_tests[current_exercise_id][test_name] = test_source
         if ShouldSkipCodeCell(source):
             continue
+        exercise_id = ExtractExerciseId(source)
+        if exercise_id:
+            metadata['exercise_id'] = exercise_id
+            # Store the inline tests map reference for later adding.
+            if embed_inline_tests:
+                inline_tests[exercise_id] = {}
+                metadata['inlinetests'] = inline_tests[exercise_id]
+            current_exercise_id = exercise_id
         source = CleanCodeCell(source)
         output_cell = {
             'cell_type': 'code',
             'source': source.splitlines(keepends=True),
         }
+        if len(metadata) > 0:
+            output_cell['metadata'] = metadata
         output_cells.append(output_cell)
     output_notebook = copy.deepcopy(notebook)
     output_notebook['cells'] = output_cells

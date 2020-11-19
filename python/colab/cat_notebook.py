@@ -38,6 +38,8 @@ def PrintNotebook(notebook):
     for cell in notebook['cells']:
         source = ''.join(cell['source'])
         print('-- ' + cell['cell_type'])
+        if 'metadata' in cell:
+            print('# ' + str(cell['metadata']))
         print(source)
 
 

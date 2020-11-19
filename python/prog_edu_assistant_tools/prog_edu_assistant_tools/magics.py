@@ -159,6 +159,26 @@ Something is wrong.
     return display.HTML(html)
 
 
+def RunInlineTest(notebook, exercise_id):
+  """Runs the inline test for a specified exercise ID.
+
+  Runs the inline test for the specified exercise ID. It pick the submission
+  source by matching the provided exercise_id with cell metadata['exercise_id'].
+  The inline tests are normally defined as cells with %%inlinetest magic
+  in the master notebook, and in this function inline tests are retrieved
+  from cell metadata['inlinetests'].
+
+  Args:
+    notebook: The JSON object of the .ipynb notebook.
+    exercise_id: The exercise ID.
+
+  Returns:
+    HTML text of the response. Typically this is displayed in the notebook
+    using `IPython.core.display(html)`.
+  """
+
+
+
 # The class MUST call this class decorator at creation time
 @magic.magics_class
 class MyMagics(magic.Magics):
