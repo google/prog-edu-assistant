@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+#
+# Downloads an .ipynb file from Google Drive.
+#
+# Usage:
+#   python gdrive_download.py \
+#     --file_id 1Xc-Rb-duXL6Q7M4Ai7sUCgCzPtg9RP6L \
+#     --output_file ml.ipynb \
+#     --client_id_json_file client_id.json
+
 
 import argparse
 import io
