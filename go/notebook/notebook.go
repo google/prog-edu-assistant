@@ -260,7 +260,7 @@ var (
 	solutionBeginRegex          = regexp.MustCompile("(?m)^([ \t]*)# BEGIN SOLUTION *\n")
 	solutionEndRegex            = regexp.MustCompile("(?m)^[ \t]*# END SOLUTION *")
 	promptBeginRegex            = regexp.MustCompile("(?m)^[ \t]*\"\"\" # BEGIN PROMPT *\n|^[ \t]*# BEGIN PROMPT *\n")
-	promptEndRegex              = regexp.MustCompile("(?m)\n[ \t]*\"\"\" # END PROMPT *\n|\n[ \t]*# END PROMPT *\n")
+	promptEndRegex              = regexp.MustCompile("(?m)\n[ \t]*\"\"\" # END PROMPT *\n?|\n[ \t]*# END PROMPT *\n?")
 	unittestBeginRegex          = regexp.MustCompile("(?m)^[ \t]*# BEGIN UNITTEST *\n")
 	unittestEndRegex            = regexp.MustCompile("(?m)^[ \t]*# END UNITTEST *")
 	autotestMarkerRegex         = regexp.MustCompile("%autotest|autotest\\(")
