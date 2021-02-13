@@ -1,6 +1,6 @@
 # Docker files
 
-The currently supported deployment scenario is Google Cloud Run.
+The currently supported hosted deployment scenario is Google Cloud Run.
 
 ## Running the image locally with Docker
 

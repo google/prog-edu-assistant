@@ -19,8 +19,26 @@ in the `exercises/` subdirectory are mostly in Japanese language.
 ## How to integrate autograder to your course
 
 If you have a course based on Jupyter notebooks and want to integrate the
-autograder tests, see
-[exercises/README.md](exercises/README.md).
+autochecking tests, there are multiple different way how the autochecking tests
+can be run:
+
+* Inside the student notebook (e.g. on Colab). The execution of autochecking
+  tests is handled within the same Python Runtime that student uses. Note that
+	this approach only supports self-checking, and cannot be used for _grading_
+	student work. See the details in [docs/colab.md](docs/colab.md).
+
+* Hosted on Google Cloud Run. The scripts in this repository provide a server
+	and build scripts to build a Docker image that can be deployed to Google
+	Cloud Run. The student submissions can be optionally logged.
+	See the details in [docs/cloudrun.md](docs/cloudrun.md).
+
+* Manual execution via scripts. This can be used for local grading of student
+  submissions against the tests defined in the instructor notebook.
+	See the details in [docs/grading.md](docs/grading.md).
+
+The markup format for instructor notebooks is common and described here:
+
+* [exercises/README.md](exercises/README.md).
 
 ## Development environment setup
 

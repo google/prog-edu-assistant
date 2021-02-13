@@ -1,7 +1,7 @@
 # Programming exercises
 
-This directory contains the programming exercises in the form of the _master
-notebooks_. The autograding scripts are automatically extracted from the master
+This directory contains the programming exercises in the form of the _instructor
+notebooks_. The autograding scripts are automatically extracted from the instructor
 notebooks.
 
 ## Installation of the student environment
@@ -9,10 +9,23 @@ notebooks.
 TODO(salikh): Provide a simpler version of installation instructions for the
 student environment sing Conda.
 
-TODO(salikh): Provide a simpler version of student installation instruction
-for Colab notebooks.
+If you target [Colab](https://colab.research.google.com/) as the environtment for students,
+there is no special setup necessary on the student side. Please make sure that the student
+notebook provides instruction for downloading and install the necessary
+dependencies via `!pip install` or `!wget` or `!curl` shellout commands.
 
-## Installation of the authoring environment
+## Installation of the authoring environment (Colab)
+
+You an use [Colab](https://colab.research.google.com/) to author assignments
+and autochecker tests. Add the following cell to your colab notebook:
+
+		# MASTER ONLY
+		!pip install prog_edu_assistant_tools
+		%load_ext prog_edu_assistant_tools.magics
+		from prog_edu_assistant_tools.magics import report, autotest, CaptureOutput
+
+
+## Installation of the authoring environment (local)
 
 Install virtualenv. The command may differ depending on the system.
 
@@ -35,13 +48,13 @@ To start the Jupyter notebook run command
 
 There are two more necessary pieces to install:
 
-*   Some tools (utility functions and IPython magics) for using in master
+*   Some tools (utility functions and IPython magics) for using in instructor
     notebooks, see [../python/prog_edu_assistant_tools/README.md]
 
 *   Jupyter notebook extension for submitting student notebooks, see
     [../nbextensions/upload_it/README.md]
 
-# A template for external integration
+# A template for external integration (hosted / Docker)
 
 This directory contains a skeleton setup for integration
 of prog-edu-assistant to an external project.
@@ -94,7 +107,14 @@ TODO(salikh): Add local server and Cloud Run deployment instructions here.
 
 ## How to author a new assignment
 
-1. Create a new Python 3 notebook in Jupyter.
+1. Create a new Python 3 notebook in Jupyter or in Colab. When running in Colab,
+   add the dependencies cell:
+
+	  ```python
+		# MASTER ONLY
+		!pip install prog_edu_assistant_tools
+		```
+
 1. Add a cell with standard imports
 
     ```python
@@ -113,6 +133,9 @@ TODO(salikh): Add local server and Cloud Run deployment instructions here.
        assignment_id: "Variables"
        ```
 
+	 TODO(salikh): Drop the requirement to specify `assignment_id`, and create the
+	 default assignment id based on the source instructor notebook file name.
+
 1. Add some introduction and explanatory material.
 1. Add an exercise descrition and metadata in a markdown cell. Use an exercise
    name that is unique inside this assignment notebook.
@@ -121,6 +144,19 @@ TODO(salikh): Add local server and Cloud Run deployment instructions here.
        # EXERCISE METADATA
        exercise_id: "BigramFrequency"
        ```
+
+	 Note: since `exercise_id` is the only piece of metadata that is necessary
+	 to specify per exercise, there is an alternative shortcut syntax to specify
+	 directly in the source code of the solution cell.
+
+			 ```
+			 # EXERCISE_ID: BigramFrequency
+			 def BigramFrequency():
+			   ...
+			 ```
+
+	 NOTE: The shortcut syntax is only supported in `python/colab/convert_to_student.py`.
+	 TODO(salikh): Unify the syntax.
 
 1. Add a canonical solution cell right after the exercise metadata cell.
 
@@ -186,7 +222,7 @@ in the student version of the notebook.
    ```python
    assignment_notebook(
        name = "nlp-intro",
-       src = "nlp-intro-master.ipynb",
+       src = "nlp-intro-instructor.ipynb",
    )
    ```
 
@@ -205,19 +241,19 @@ in the student version of the notebook.
 
 ## Structure of the programming assignment notebooks
 
-Each programming assignment resides in a separate master Jupyter notebook. At
-build time, the master notebook is taken as an input and the following outputs
+Each programming assignment resides in a separate instructor Jupyter notebook. At
+build time, the instructor notebook is taken as an input and the following outputs
 are generated:
 
 *   Student notebook
 *   Autograder test directory
 *   Automated tests for the notebook
-    *   Testing master solution against student tests
-    *   Testing master solution against autograder scripts
+    *   Testing instructor solution against student tests
+    *   Testing instructor solution against autograder scripts
     *   Testing autograder scripts agains a variety of incomplete and incorrect
         solutions
 
-A student notebook, and by extension, the source master notebook should contain
+A student notebook, and by extension, the source instructor notebook should contain
 the following:
 
 *   Explanation of a new concept, algorithm or library
@@ -228,7 +264,7 @@ the following:
         form `... your solution here ...` or similar.
 *   A few cells with tests for the student's solution, typically with built-in
     `assert` statements. These are used in two ways:
-    *   To test the solution in the master notebook.
+    *   To test the solution in the instructor notebook.
     *   To give students a few tests to check their solution.
 
 Each student notebook should have a `assignment_id` entry in the notebook
@@ -242,7 +278,7 @@ assignment belongs to.
 
 This is useful for deciding which assignment the uploaded notebook is for and
 for picking the correct autograder script to run. The metadata is provided in
-the master notebook using triple-backtick sections with regexp-friendly markers
+the instructor notebook using triple-backtick sections with regexp-friendly markers
 in YAML format (which means that the marker itself becomes a YAML comment and is
 ignored). `# ASSIGNMENT METADATA` is copied into the notebook-level metadata
 field of the student notebook, and `# EXERCISE METADATA` is copied into the cell
@@ -258,7 +294,7 @@ level metadata of the next code cell, which designates it as a _solution cell_.
     exercise_id: "DefinePi"
     ```
 
-The solution cell in the master notebook should contain the master solution,
+The solution cell in the instructor notebook should contain the instructor solution,
 marked with IPython magic `%%solution`. If there is a pair of `# BEGIN SOLUTION`
 and `# END SOLUTION` markers, that part will be removed when generating the
 student notebook. Otherwise, the whole cell will be replaced by a placeholder.
@@ -272,7 +308,7 @@ student notebook. Otherwise, the whole cell will be replaced by a placeholder.
       return 3.14
       # END SOLUTION
 
-The master solution will be replaced with `...` in the student notebook. If a
+The instructor solution will be replaced with `...` in the student notebook. If a
 different replacement is desired, `BEGIN PROMPT` and `END PROMPT` markers may be
 used _before_ the SOLUTION block:
 
@@ -292,7 +328,7 @@ These typically should use Python's `assert` builtin.
 
 The marker `# TEST` is removed when generating the student notebook.
 
-TODO(salikh): Automatically extract `# TEST` cells as unit tests for the master
+TODO(salikh): Automatically extract `# TEST` cells as unit tests for the instructor
 notebook.
 
 The cells that are autograder scripts should be structured as standard Python
@@ -306,59 +342,6 @@ the notebook similar to a regular code cell.
 The part of the cell after the `END UNITTEST` marker is also not written to
 autograder scripts. It is useful to run the tests in the notebook inline, e.g.
 using `autotest` function from the package `prog_edu_assistant_tools`.
-
-## Structure of autograder scripts directories
-
-NOTE: This is a proposed format that is subject to discussion and change.
-
-Autograder tests are the tests that can be run in three environments:
-
-1.  During the assignment authoring in the master Jupyter notebook, to test
-    whether the unit tests are catching the expected types of problems
-    correctly.
-2.  In the automated build system, to check the consistency of the master
-    assignment notebooks. This mostly runs the same kind of tests as the master
-    notebook, but in an automated manner.
-3.  In the autograder worker, against student submissions, to determine the
-    grading result.
-
-The autograder scripts have two representations: the directory format and the
-notebook format. The notebook format is the authoritative source and is
-contained in the master notebook. The directory format is produced at build time
-and is included into the autograder image, as well for automated testing of the
-notebooks.
-
-### Autograder tests in master notebook
-
-The autograder tests use two special IPython magics. A cell with `%%submission`
-cell magic sets up the environment with the given code as hypothetical student
-submission. A subsequent cells may use `autotest` function to obtain grading
-results from a specific unit test and subsequently check them with assert
-statements.
-
-        %%submission
-        PI = 4.5
-
-        result, log = autotest(TestPi)
-        assert(result.results["TestPi.test_between_3_and_4"] == false)
-
-### Autograder test directories
-
-In the directory format, all autograder scripts take the form of python unit
-tests (`*Test.py` files) runnable by the unittest runner. The student's
-submission or the master solution will be written into a `submission.py` file
-into the scratch directory together with copies of all autograder scripts (unit
-tests).
-
-Extraction of the student solution and matching of the solution against unit
-tests is done through metadata tags `assignment_id` and `exercise_id`. Following
-the linear execution model of Jupyter notebook, all unit tests defined in the
-notebook are implicitly assumed to test the last defined exercise.
-
-The exercise directory may also contain a special script `report.py` to to
-convert a vector of test outcomes into a human-readable report.
-
-TODO(salikh): Figure out a user-friendly and concise report format.
 
 ## List of the exercises
 
