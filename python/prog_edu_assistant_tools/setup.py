@@ -11,7 +11,7 @@ with open('README.md', 'r') as f:
 
 setuptools.setup(
     name='prog_edu_assistant_tools',
-    version='0.3',
+    version='0.3.1',
     author='Salikh Zakirov',
     author_email='salikh@gmail.com',
     description=
