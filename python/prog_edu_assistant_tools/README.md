@@ -28,11 +28,11 @@ in every master notebook.
 
 ## How to install this package locally
 
-    pip install dist/prog_edu_assistant_tools-0.2-py3-none-any.whl
+    pip install dist/prog_edu_assistant_tools-0.3-py3-none-any.whl
 
 If you are a developer and want to reinstall the package, use the following:
 
-    pip install --ignore-installed dist/prog_edu_assistant_tools-0.2-py3-none-any.whl
+    pip install --ignore-installed dist/prog_edu_assistant_tools-0.3-py3-none-any.whl
 
 ## How to use this package in master notebooks.
 
