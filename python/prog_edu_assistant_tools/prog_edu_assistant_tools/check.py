@@ -6,6 +6,7 @@ http://github.com/google/prog-edu-assistant for details about
 how to add autograder tests to your Colab notebook.
 """
 
+import inspect
 import re
 import sys
 import jinja2
@@ -25,7 +26,7 @@ def GetNotebook():
     "get_ipynb", request="", timeout_sec=120)["ipynb"]
   return notebook
 
-def RunInlineTests(submission_source, inlinetests):
+def RunInlineTests(submission_source, inlinetests, global_vars=globals()):
   """Runs an inline test."""
   errors = []
   for test_name, test_source in inlinetests.items():
@@ -33,8 +34,8 @@ def RunInlineTests(submission_source, inlinetests):
     with CaptureOutput() as (stdout, stderr):
       try:
         env = {}
-        exec(submission_source, globals(), env)
-        exec(test_source, globals(), env)
+        exec(submission_source, global_vars, env)
+        exec(test_source, global_vars, env)
       except AssertionError as e:
         errors.append(str(e))
       if len(stderr.getvalue()) > 0:
@@ -119,5 +120,7 @@ def Check(exercise_id):
         # 4. Stop at the next exercise_id.
         break
       j += 1
-  html = RunInlineTests(submission_source, inlinetests)
+  # Pick the globals from the caller.
+  global_vars = inspect.currentframe().f_back.f_globals
+  html = RunInlineTests(submission_source, inlinetests, global_vars)
   return display.HTML(html)
